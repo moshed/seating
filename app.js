@@ -502,6 +502,7 @@
     var nm = document.createElement('span');
     nm.className = 'nm';
     nm.textContent = g.name;
+    el.title = g.name + ' — double-click to rename';
     el.appendChild(nm);
 
     var x = document.createElement('button');
@@ -757,6 +758,22 @@
       if (!chipEl) return;
       handleLink(chipEl.dataset.gid);
     }
+  });
+
+  // Double-click a name to fix it — the spreadsheet leaves some spouses blank,
+  // so those come in as "Mrs. <Lastname>" and need a real first name typed in.
+  document.addEventListener('dblclick', function (ev) {
+    if (linking) return;
+    var el = ev.target.closest ? ev.target.closest('.chip') : null;
+    if (!el) return;
+    var g = guest(el.dataset.gid);
+    if (!g) return;
+    var v = prompt('Name:', g.name);
+    if (v === null) return;
+    v = v.trim();
+    if (!v || v === g.name) return;
+    g.name = v;
+    save(); render();
   });
 
   function handleLink(gid) {

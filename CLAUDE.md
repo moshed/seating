@@ -31,6 +31,7 @@ Paste a guest list, get tables. Guests drag between tables. Couples are linked a
 - Verified against the real 246-household wedding sheet, both pasted and dropped as the raw .xlsx: 311 guests, 105 couples, 32 tables, no couple split.
 - **Seeding groups by last name.** `randomize()` buckets units by surname (last word of the name), shuffles the bucket order, sorts biggest family first, and drops each family at the *tightest* table it fits at whole. A family too big for one table fills whole empty tables first so it lands as solid blocks, not scattered singles. On the real list that leaves 143 surnames with only 5 split — and each of those has more people than a 10-seat table. The remaining randomness is in the order of equally-sized families, so Shuffle still reshuffles.
 - No "keep these apart" rules and no cross-family affinity.
+- **Double-click a name to rename it.** 15 rows in the real sheet say two are coming but leave `Spouse` blank, so those wives import as `Mrs. <Lastname>` — renaming is how they get fixed, and it keeps the couple link intact.
 
 ## Password gate
 The chart is behind a password (`adina123`). An inline script in `<head>` adds `class="locked"` to `<html>` before first paint so the guest list never flashes; `app.js` compares a SHA-256 of what's typed against `PW_SHA256` and sets `localStorage['seating.unlocked']`.
