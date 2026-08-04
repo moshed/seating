@@ -68,23 +68,42 @@
   }
 
   // Move a whole unit to a table id, or to 'pool'. Returns true if it happened.
+  // Tables are allowed to overflow — an over-capacity table just turns red.
   function moveUnit(ids, zone) {
     if (zone === 'pool') { ids.forEach(detach); return true; }
     var t = table(zone);
     if (!t) return false;
-    var already = ids.filter(function (id) { return t.guests.indexOf(id) !== -1; }).length;
-    if (freeSeats(t) + already < ids.length) return false;
     ids.forEach(detach);
     ids.forEach(function (id) { if (t.guests.indexOf(id) === -1) t.guests.push(id); });
     return true;
   }
 
   function canDrop(ids, zone) {
-    if (zone === 'pool') return true;
-    var t = table(zone);
-    if (!t) return false;
-    var already = ids.filter(function (id) { return t.guests.indexOf(id) !== -1; }).length;
-    return freeSeats(t) + already >= ids.length;
+    return zone === 'pool' || !!table(zone);
+  }
+
+  // Render guests into a zone, boxing each couple in a .pair so the two names
+  // read as one joined unit (the gold rule down the left ties their dots).
+  function appendGuests(container, ids) {
+    var seen = {};
+    ids.forEach(function (id) {
+      if (seen[id]) return;
+      var g = guest(id);
+      if (!g) return;
+      seen[id] = 1;
+      var mate = g.partner && ids.indexOf(g.partner) !== -1 && !seen[g.partner]
+        ? guest(g.partner) : null;
+      if (mate) {
+        seen[mate.id] = 1;
+        var pair = document.createElement('div');
+        pair.className = 'pair';
+        pair.appendChild(chip(g));
+        pair.appendChild(chip(mate));
+        container.appendChild(pair);
+      } else {
+        container.appendChild(chip(g));
+      }
+    });
   }
 
   /* ---------------- guest list parsing ---------------- */
@@ -217,7 +236,7 @@
     pool.innerHTML = '';
     var un = unseated();
     $('#pool-count').textContent = un.length;
-    un.forEach(function (g) { pool.appendChild(chip(g)); });
+    appendGuests(pool, un.map(function (g) { return g.id; }));
 
     // tables
     var wrap = $('#tables');
@@ -275,10 +294,7 @@
       var body = document.createElement('div');
       body.className = 'table-body dropzone';
       body.dataset.zone = t.id;
-      t.guests.forEach(function (gid) {
-        var g = guest(gid);
-        if (g) body.appendChild(chip(g));
-      });
+      appendGuests(body, t.guests);
       var empties = Math.max(0, t.seats - t.guests.length);
       for (var i = 0; i < Math.min(empties, 40); i++) {
         var e = document.createElement('div');

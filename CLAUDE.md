@@ -21,7 +21,8 @@ Paste a guest list, get tables. Guests drag between tables. Couples are linked a
 ## Things that are load-bearing
 - **`[hidden]{display:none !important}` in styles.css.** `.modal` and `.linkbar` set `display:flex`, which beats the UA `[hidden]` rule — without the override every modal is permanently visible. This bit once already.
 - **Drag uses pointer events, not HTML5 DnD** — HTML5 drag does not work on touch. `.chip` needs `touch-action:none` or the browser scrolls instead of dragging.
-- **A drop is rejected if the unit does not fit** (`canDrop`), so a couple can never be split by dragging. The drop zone flashes red instead.
+- **Tables are allowed to overflow.** An over-capacity table gets `.over` (red border + red `12/10` count) — it is never a blocked drop. An earlier build rejected drops that did not fit, which with 300 guests on exactly-full tables meant *no drag ever worked*. Do not reintroduce a capacity check in `canDrop`.
+- **A couple renders as one `.pair` box**, gold outline + a gold rule down the left joining the two dots. `appendGuests()` builds it. This replaced an SVG-line version that measured chip offsets — those coordinates went stale the moment the webfont loaded and left lines pointing at nothing. Anything position-measured here needs a redraw on font load and reflow; the CSS box needs neither.
 - Guest-list parsing splits a line on `&`, `+`, or `and`. A one-word first name inherits the last name of the second (`David & Sarah Klein` -> David Klein / Sarah Klein).
 - Seating is random only. There are no affinity rules / no "keep these apart" logic yet.
 
