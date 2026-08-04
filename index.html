@@ -10,6 +10,12 @@
 <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="styles.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪑</text></svg>">
+<script>
+  // Hide the chart before first paint if this browser has not unlocked yet,
+  // so nobody ever sees a flash of the guest list.
+  try { if (localStorage.getItem('seating.unlocked') !== '1') document.documentElement.className = 'locked'; }
+  catch (e) { document.documentElement.className = 'locked'; }
+</script>
 </head>
 <body>
 
@@ -55,13 +61,16 @@
     <p class="hint">Two ways in:<br>
       <b>1. Type it</b> — one party per line. <code>David &amp; Sarah Klein</code> is a linked
       couple; a plain name is a single guest.<br>
-      <b>2. Paste from Excel</b> — select the cells <i>including the header row</i> and paste.
+      <b>2. Drop the spreadsheet</b> — drag the .xlsx straight onto this page, or paste the
+      cells <i>including the header row</i>.
       It reads <code>Fname</code>, <code>Lname</code>, <code>Spouse</code>, <code>responses</code>
       (<code>yes-2</code> = two coming) and <code>Table #</code> if you've filled it in.</p>
     <textarea id="import-text" spellcheck="false" placeholder="David &amp; Sarah Klein&#10;Rachel Berger&#10;Yaakov + Miriam Stein&#10;&#10;…or paste your spreadsheet columns here"></textarea>
     <p class="loadrow">
       <button class="btn small" id="import-load">Load the Leo &amp; Dani guest list</button>
-      <span class="loadnote">246 households · 311 confirmed</span>
+      <button class="btn small" id="import-pick">Choose a file…</button>
+      <span class="loadnote">or drag an .xlsx onto the page</span>
+      <input type="file" id="import-file" accept=".xlsx,.xlsm,.csv,.tsv,.txt" hidden>
     </p>
     <div class="sheet-actions">
       <label class="chk"><input type="checkbox" id="import-replace" checked> Replace current list</label>
@@ -86,6 +95,24 @@
       <button class="menu-item danger" id="mm-reset">Delete everything</button>
     </div>
     <div class="sheet-actions"><span class="spacer"></span><button class="btn ghost" data-close>Close</button></div>
+  </div>
+</div>
+
+<div class="gate" id="gate" hidden>
+  <form class="gate-box" id="gate-form">
+    <h2>Seating</h2>
+    <p>Enter the password to open the chart.</p>
+    <input type="password" id="gate-pw" autocomplete="current-password" placeholder="Password" autofocus>
+    <div class="gate-err" id="gate-err" hidden>Wrong password</div>
+    <button type="submit" class="btn primary">Open</button>
+  </form>
+</div>
+
+<div id="filedrop" class="filedrop" hidden>
+  <div class="filedrop-inner">
+    <div class="filedrop-icon">↓</div>
+    <b>Drop your spreadsheet</b>
+    <span>.xlsx, .csv or .txt</span>
   </div>
 </div>
 

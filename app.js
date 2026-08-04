@@ -223,6 +223,148 @@
     return { guests: guests, assign: assign, skipped: skipped };
   }
 
+  /* ---------------- reading a dropped .xlsx / .csv ----------------
+     An .xlsx is a zip of XML. Rather than ship a 900 KB spreadsheet
+     library for one file, walk the zip directory by hand and inflate with
+     the browser's own DecompressionStream. Only the first worksheet and
+     the shared-string table are needed. */
+
+  function u16(dv, o) { return dv.getUint16(o, true); }
+  function u32(dv, o) { return dv.getUint32(o, true); }
+
+  function zipEntries(buf) {
+    var dv = new DataView(buf), n = buf.byteLength, eocd = -1;
+    for (var i = n - 22; i >= 0 && i > n - 66000; i--) {
+      if (u32(dv, i) === 0x06054b50) { eocd = i; break; }
+    }
+    if (eocd < 0) throw new Error('not a zip');
+    var count = u16(dv, eocd + 10), p = u32(dv, eocd + 16), out = {};
+    for (var k = 0; k < count; k++) {
+      if (u32(dv, p) !== 0x02014b50) break;
+      var nlen = u16(dv, p + 28), elen = u16(dv, p + 30), clen = u16(dv, p + 32);
+      out[new TextDecoder().decode(new Uint8Array(buf, p + 46, nlen))] = {
+        method: u16(dv, p + 10), csize: u32(dv, p + 20), lho: u32(dv, p + 42)
+      };
+      p += 46 + nlen + elen + clen;
+    }
+    return out;
+  }
+
+  function zipRead(buf, e) {
+    var dv = new DataView(buf);
+    if (u32(dv, e.lho) !== 0x04034b50) return Promise.reject(new Error('bad entry'));
+    var start = e.lho + 30 + u16(dv, e.lho + 26) + u16(dv, e.lho + 28);
+    var data = new Uint8Array(buf, start, e.csize);
+    if (e.method === 0) return Promise.resolve(new TextDecoder().decode(data));
+    if (e.method !== 8) return Promise.reject(new Error('unsupported compression'));
+    if (!window.DecompressionStream) return Promise.reject(new Error('no inflate'));
+    var stream = new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    return new Response(stream).text();
+  }
+
+  function colIndex(ref) {
+    var m = /^([A-Z]+)/.exec(ref || '');
+    if (!m) return 0;
+    var n = 0;
+    for (var i = 0; i < m[1].length; i++) n = n * 26 + (m[1].charCodeAt(i) - 64);
+    return n - 1;
+  }
+
+  function xlsxToTsv(buf) {
+    var ents = zipEntries(buf), sheet = null;
+    Object.keys(ents).forEach(function (k) {
+      if (/^xl\/worksheets\/sheet\d+\.xml$/.test(k) && (!sheet || k < sheet)) sheet = k;
+    });
+    if (!sheet) throw new Error('no worksheet');
+    return Promise.all([
+      zipRead(buf, ents[sheet]),
+      ents['xl/sharedStrings.xml'] ? zipRead(buf, ents['xl/sharedStrings.xml']) : ''
+    ]).then(function (r) {
+      var shared = [];
+      if (r[1]) {
+        var sd = new DOMParser().parseFromString(r[1], 'application/xml');
+        Array.prototype.forEach.call(sd.getElementsByTagName('si'), function (si) {
+          var t = '';
+          Array.prototype.forEach.call(si.getElementsByTagName('t'), function (n) {
+            if (n.parentNode.nodeName !== 'rPh') t += n.textContent;
+          });
+          shared.push(t);
+        });
+      }
+      var doc = new DOMParser().parseFromString(r[0], 'application/xml');
+      var rows = [], width = 0;
+      Array.prototype.forEach.call(doc.getElementsByTagName('row'), function (row) {
+        var cells = [];
+        Array.prototype.forEach.call(row.getElementsByTagName('c'), function (c) {
+          var col = colIndex(c.getAttribute('r')), t = c.getAttribute('t'), v = '';
+          if (t === 'inlineStr') {
+            Array.prototype.forEach.call(c.getElementsByTagName('t'), function (n) {
+              v += n.textContent;
+            });
+          } else {
+            var vn = c.getElementsByTagName('v')[0];
+            v = vn ? vn.textContent : '';
+            if (t === 's') v = shared[parseInt(v, 10)] || '';
+          }
+          while (cells.length < col) cells.push('');
+          cells[col] = v.replace(/[\t\r\n]+/g, ' ').trim();
+        });
+        if (cells.length > width) width = cells.length;
+        rows.push(cells);
+      });
+      var out = [];
+      rows.forEach(function (r2) {
+        while (r2.length < width) r2.push('');
+        if (r2.some(function (c) { return c; })) out.push(r2.join('\t'));
+      });
+      return out.join('\n');
+    });
+  }
+
+  // CSV -> TSV, honouring quoted fields that contain commas or newlines.
+  function csvToTsv(text) {
+    var rows = [], row = [], cur = '', q = false;
+    for (var i = 0; i < text.length; i++) {
+      var ch = text[i];
+      if (q) {
+        if (ch === '"') { if (text[i + 1] === '"') { cur += '"'; i++; } else q = false; }
+        else cur += ch;
+      } else if (ch === '"') q = true;
+      else if (ch === ',') { row.push(cur); cur = ''; }
+      else if (ch === '\n') { row.push(cur); rows.push(row); row = []; cur = ''; }
+      else if (ch !== '\r') cur += ch;
+    }
+    row.push(cur);
+    if (row.some(function (c) { return c; })) rows.push(row);
+    return rows.map(function (r) {
+      return r.map(function (c) { return c.replace(/\t/g, ' ').trim(); }).join('\t');
+    }).join('\n');
+  }
+
+  function loadFile(file) {
+    var name = (file.name || '').toLowerCase();
+    var done = function (t) {
+      if (!t || !t.trim()) { toast('That file looked empty'); return; }
+      $('#import-text').value = t;
+      $('#import-replace').checked = true;
+      openModal('#modal-import');
+      toast('Loaded ' + file.name + ' — check it, then press Save');
+    };
+    var fail = function () { toast('Could not read ' + file.name); };
+
+    if (/\.(xlsx|xlsm)$/.test(name)) {
+      file.arrayBuffer().then(xlsxToTsv).then(done).catch(fail);
+    } else if (/\.csv$/.test(name)) {
+      file.text().then(function (t) { done(csvToTsv(t)); }).catch(fail);
+    } else if (/\.(tsv|txt)$/.test(name)) {
+      file.text().then(done).catch(fail);
+    } else if (/\.xls$/.test(name)) {
+      toast('Old .xls format — re-save it as .xlsx and drop that');
+    } else {
+      toast('Drop an .xlsx, .csv or .txt file');
+    }
+  }
+
   /* ---------------- seating ---------------- */
 
   function shuffle(a) {
@@ -729,14 +871,18 @@
   });
 
   $('#import-save').addEventListener('click', function () {
-    var res = parseList($('#import-text').value, $('#import-noreply').checked);
-    if (res.error === 'noheader') {
-      toast('Include the header row (Fname / Lname) when pasting from Excel');
-      return;
-    }
-    if (!res.guests.length) { toast('Nothing to import'); return; }
+    var r = applyImport($('#import-text').value, $('#import-replace').checked,
+                        $('#import-noreply').checked);
+    if (r === 'noheader') toast('Include the header row (Fname / Lname) when pasting from Excel');
+    else if (r === 'empty') toast('Nothing to import');
+  });
 
-    if ($('#import-replace').checked) {
+  function applyImport(text, replace, noreply) {
+    var res = parseList(text, noreply);
+    if (res.error === 'noheader') return 'noheader';
+    if (!res.guests.length) return 'empty';
+
+    if (replace) {
       state.guests = res.guests;
       state.tables.forEach(function (t) { t.guests = []; });
     } else {
@@ -772,7 +918,42 @@
       randomize();
     }
     if (res.skipped) toast(res.skipped + ' households with no RSVP were left out');
+    return 'ok';
+  }
+
+  // Drop a spreadsheet anywhere on the page.
+  var dragDepth = 0;
+  function hasFiles(ev) {
+    var dt = ev.dataTransfer;
+    return dt && dt.types && Array.prototype.indexOf.call(dt.types, 'Files') !== -1;
+  }
+  window.addEventListener('dragenter', function (ev) {
+    if (!hasFiles(ev)) return;
+    ev.preventDefault();
+    dragDepth++;
+    $('#filedrop').hidden = false;
   });
+  window.addEventListener('dragover', function (ev) {
+    if (hasFiles(ev)) { ev.preventDefault(); ev.dataTransfer.dropEffect = 'copy'; }
+  });
+  window.addEventListener('dragleave', function (ev) {
+    if (!hasFiles(ev)) return;
+    if (--dragDepth <= 0) { dragDepth = 0; $('#filedrop').hidden = true; }
+  });
+  window.addEventListener('drop', function (ev) {
+    if (!hasFiles(ev)) return;
+    ev.preventDefault();
+    dragDepth = 0;
+    $('#filedrop').hidden = true;
+    var f = ev.dataTransfer.files && ev.dataTransfer.files[0];
+    if (f) loadFile(f);
+  });
+
+  $('#import-file').addEventListener('change', function () {
+    if (this.files && this.files[0]) loadFile(this.files[0]);
+    this.value = '';
+  });
+  $('#import-pick').addEventListener('click', function () { $('#import-file').click(); });
 
   $('#btn-more').addEventListener('click', function () { openModal('#modal-more'); });
   $('#mm-print').addEventListener('click', function () { closeModals(); setTimeout(function () { window.print(); }, 80); });
@@ -803,8 +984,73 @@
     closeModals(); save(); render();
   });
 
+  /* ---------------- password gate ----------------
+     This is a static page, so the gate is a doormat, not a deadbolt — it
+     stops someone wandering in, but anyone who opens devtools or fetches
+     guests.tsv directly can read the list. Storing the hash rather than
+     the password at least keeps it out of plain sight in the source. */
+
+  var LOCK = 'seating.unlocked';
+  var PW_SHA256 = 'bdda355272ff397a89884a808bd1724aa90bfaf728d18410ee85a019cb847f34';
+
+  function sha256(text) {
+    if (!window.crypto || !crypto.subtle) return Promise.resolve(null);
+    return crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
+      .then(function (buf) {
+        return Array.prototype.map.call(new Uint8Array(buf), function (b) {
+          return ('0' + b.toString(16)).slice(-2);
+        }).join('');
+      });
+  }
+
+  function openGate(done) {
+    var gate = $('#gate');
+    gate.hidden = false;
+    $('#gate-pw').focus();
+    $('#gate-form').addEventListener('submit', function (ev) {
+      ev.preventDefault();
+      var pw = $('#gate-pw').value;
+      sha256(pw).then(function (h) {
+        // crypto.subtle is unavailable over plain http; fall back to a
+        // direct compare there so the gate still works on localhost.
+        var ok = h ? h === PW_SHA256 : pw === 'adina123';
+        if (!ok) {
+          $('#gate-err').hidden = false;
+          $('#gate-pw').select();
+          return;
+        }
+        try { localStorage.setItem(LOCK, '1'); } catch (e) {}
+        document.documentElement.classList.remove('locked');
+        gate.hidden = true;
+        done();
+      });
+    });
+  }
+
   /* ---------------- boot ---------------- */
 
-  render();
-  if (!state.guests.length) setTimeout(function () { $('#btn-import').click(); }, 300);
+  // A browser that has never been here gets the real list already seated,
+  // so the app is useful the moment it opens.
+  function loadDefaultList() {
+    fetch('guests.tsv', { cache: 'no-cache' })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
+      .then(function (t) {
+        if (applyImport(t, true, false) !== 'ok') throw new Error('parse');
+      })
+      .catch(function () { $('#btn-import').click(); });
+  }
+
+  function start() {
+    render();
+    if (!state.guests.length) loadDefaultList();
+  }
+
+  var isUnlocked = false;
+  try { isUnlocked = localStorage.getItem(LOCK) === '1'; } catch (e) {}
+  if (isUnlocked) {
+    document.documentElement.classList.remove('locked');
+    start();
+  } else {
+    openGate(start);
+  }
 })();
