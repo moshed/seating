@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Seating</title>
+<meta name="description" content="Wedding seating chart — drag and drop guests onto tables.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🪑</text></svg>">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <h1 id="title" contenteditable="true" spellcheck="false">Our Wedding</h1>
+    <p class="stats" id="stats">—</p>
+  </div>
+  <div class="actions">
+    <button id="btn-import" class="btn">Guests</button>
+    <button id="btn-addtable" class="btn">Add table</button>
+    <button id="btn-random" class="btn">Shuffle</button>
+    <button id="btn-link" class="btn">Link couples</button>
+    <button id="btn-more" class="btn ghost" aria-label="More">•••</button>
+  </div>
+</header>
+
+<div id="linkbar" class="linkbar" hidden>
+  <span>Tap two guests to link them as a couple. Tap one linked guest to unlink.</span>
+  <button id="btn-linkdone" class="btn small">Done</button>
+</div>
+
+<main class="layout">
+  <aside class="pool" id="pool">
+    <div class="pool-head">
+      <h2>Not seated <span class="count" id="pool-count">0</span></h2>
+      <input id="search" type="search" placeholder="Search guests…" autocomplete="off">
+    </div>
+    <div class="pool-body dropzone" id="pool-body" data-zone="pool"></div>
+  </aside>
+
+  <section class="tables" id="tables"></section>
+</main>
+
+<!-- Import modal -->
+<div class="modal" id="modal-import" hidden>
+  <div class="sheet">
+    <h3>Guest list</h3>
+    <p class="hint">One party per line. Use <b>&amp;</b> or <b>+</b> to link a couple —
+      e.g. <code>David &amp; Sarah Klein</code>. A plain name is a single guest.</p>
+    <textarea id="import-text" spellcheck="false" placeholder="David &amp; Sarah Klein&#10;Rachel Berger&#10;Yaakov + Miriam Stein"></textarea>
+    <div class="sheet-actions">
+      <label class="chk"><input type="checkbox" id="import-replace" checked> Replace current list</label>
+      <span class="spacer"></span>
+      <button class="btn ghost" data-close>Cancel</button>
+      <button class="btn primary" id="import-save">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- More modal -->
+<div class="modal" id="modal-more" hidden>
+  <div class="sheet narrow">
+    <h3>More</h3>
+    <div class="menu">
+      <button class="menu-item" id="mm-print">Print / PDF the chart</button>
+      <button class="menu-item" id="mm-csv">Download CSV</button>
+      <button class="menu-item" id="mm-copy">Copy chart as text</button>
+      <button class="menu-item" id="mm-seatsall">Set every table's seat count…</button>
+      <button class="menu-item" id="mm-clearseats">Clear all seating (keep guests)</button>
+      <button class="menu-item danger" id="mm-reset">Delete everything</button>
+    </div>
+    <div class="sheet-actions"><span class="spacer"></span><button class="btn ghost" data-close>Close</button></div>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>
