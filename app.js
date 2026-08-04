@@ -231,6 +231,27 @@
       state.guests.length + ' guests · ' + seated + ' seated · ' +
       state.tables.length + ' tables · ' + seats + ' seats';
 
+    // over-capacity list
+    var over = state.tables.filter(function (t) { return t.guests.length > t.seats; });
+    $('#overlist').hidden = !over.length;
+    $('#over-count').textContent = over.length;
+    var ob = $('#over-body');
+    ob.innerHTML = '';
+    over.forEach(function (t) {
+      var row = document.createElement('button');
+      row.className = 'over-row';
+      row.type = 'button';
+      var nm = document.createElement('span');
+      nm.className = 'tn';
+      nm.textContent = t.name;
+      var by = document.createElement('span');
+      by.className = 'by';
+      by.textContent = t.guests.length + '/' + t.seats + '  (+' + (t.guests.length - t.seats) + ')';
+      row.appendChild(nm); row.appendChild(by);
+      row.addEventListener('click', function () { revealTable(t.id); });
+      ob.appendChild(row);
+    });
+
     // pool
     var pool = $('#pool-body');
     pool.innerHTML = '';
@@ -306,6 +327,17 @@
     });
 
     markMates();
+  }
+
+  function revealTable(id) {
+    var body = document.querySelector('.table-body[data-zone="' + id + '"]');
+    if (!body) return;
+    var card = body.closest('.table-card');
+    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    card.classList.remove('flash');
+    void card.offsetWidth;                       // restart the animation
+    card.classList.add('flash');
+    setTimeout(function () { card.classList.remove('flash'); }, 1200);
   }
 
   // Halo both halves of a couple when either is hovered.
