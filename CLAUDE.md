@@ -29,7 +29,8 @@ Paste a guest list, get tables. Guests drag between tables. Couples are linked a
 - **An .xlsx can be dropped straight onto the page** (or picked with "Choose a file…"). Rather than ship a ~900 KB spreadsheet library, `app.js` walks the zip central directory by hand and inflates with the browser's `DecompressionStream('deflate-raw')`, reading only the first worksheet plus `sharedStrings.xml`. Needs Chrome 103 / Safari 16.4+. `.csv` and `.tsv` also work.
 - On a browser with no saved chart, the app fetches `guests.tsv` and seats it automatically — no empty state. A browser that already holds a chart keeps it (edits are not stomped), so **More -> Reset to the Leo & Dani guest list** exists to get back to the default in one click.
 - Verified against the real 246-household wedding sheet, both pasted and dropped as the raw .xlsx: 311 guests, 105 couples, 32 tables, no couple split.
-- Seating is random only. There are no affinity rules / no "keep these apart" logic yet.
+- **Seeding groups by last name.** `randomize()` buckets units by surname (last word of the name), shuffles the bucket order, sorts biggest family first, and drops each family at the *tightest* table it fits at whole. A family too big for one table fills whole empty tables first so it lands as solid blocks, not scattered singles. On the real list that leaves 143 surnames with only 5 split — and each of those has more people than a 10-seat table. The remaining randomness is in the order of equally-sized families, so Shuffle still reshuffles.
+- No "keep these apart" rules and no cross-family affinity.
 
 ## Password gate
 The chart is behind a password (`adina123`). An inline script in `<head>` adds `class="locked"` to `<html>` before first paint so the guest list never flashes; `app.js` compares a SHA-256 of what's typed against `PW_SHA256` and sets `localStorage['seating.unlocked']`.

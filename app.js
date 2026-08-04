@@ -391,24 +391,85 @@
     while (state.tables.length < need) addTable(true);
   }
 
+  function surname(name) {
+    var parts = String(name || '').trim().split(/\s+/);
+    return (parts[parts.length - 1] || '').toLowerCase();
+  }
+
+  /* Seat by family: everyone sharing a last name is one group, and a group
+     goes to the tightest table it fits at whole. Biggest families are placed
+     first so they get a table before the space is chipped away. */
   function randomize() {
     if (!state.guests.length) { toast('Add guests first'); return; }
     ensureTables();
     state.tables.forEach(function (t) { t.guests = []; });
-    var us = shuffle(units());
-    var left = [];
-    us.forEach(function (u) {
-      var placed = false;
-      for (var i = 0; i < state.tables.length; i++) {
-        if (freeSeats(state.tables[i]) >= u.length) {
-          u.forEach(function (id) { state.tables[i].guests.push(id); });
-          placed = true; break;
-        }
-      }
-      if (!placed) left.push(u);
+
+    var fams = {}, order = [];
+    units().forEach(function (u) {
+      var k = surname(guest(u[0]).name);
+      if (!fams[k]) { fams[k] = []; order.push(k); }
+      fams[k].push(u);
     });
+    shuffle(order);                          // ties broken randomly, not alphabetically
+    var groups = order.map(function (k) {
+      var size = 0;
+      fams[k].forEach(function (u) { size += u.length; });
+      return { units: fams[k], size: size };
+    });
+    groups.sort(function (a, b) { return b.size - a.size; });
+
+    var left = [];
+    groups.forEach(function (g) {
+      var fit = null;
+      state.tables.forEach(function (t) {
+        if (freeSeats(t) >= g.size && (!fit || freeSeats(t) < freeSeats(fit))) fit = t;
+      });
+      if (fit) {
+        g.units.forEach(function (u) {
+          u.forEach(function (id) { fit.guests.push(id); });
+        });
+        return;
+      }
+      // Bigger than any one table. Fill whole empty tables with them first so
+      // the family lands as a couple of solid blocks instead of confetti.
+      var rem = g.units.slice();
+      state.tables.forEach(function (t) {
+        if (t.guests.length || !rem.length) return;
+        for (var i = 0; i < rem.length;) {
+          if (rem[i].length <= freeSeats(t)) {
+            rem[i].forEach(function (id) { t.guests.push(id); });
+            rem.splice(i, 1);
+          } else i++;
+        }
+      });
+      rem.forEach(function (u) {
+        var best = null;
+        state.tables.forEach(function (t) {
+          if (freeSeats(t) >= u.length && (!best || freeSeats(t) > freeSeats(best))) best = t;
+        });
+        if (best) u.forEach(function (id) { best.guests.push(id); });
+        else left.push(u);
+      });
+    });
+
+    // whoever is still standing gets new tables
+    while (left.length) {
+      var t = { id: uid(), name: 'Table ' + (state.tables.length + 1),
+                seats: state.defaultSeats, guests: [] };
+      state.tables.push(t);
+      for (var i = 0; i < left.length;) {
+        if (left[i].length <= freeSeats(t)) {
+          left[i].forEach(function (id) { t.guests.push(id); });
+          left.splice(i, 1);
+        } else i++;
+      }
+      if (!t.guests.length) {                // a unit larger than a whole table
+        left.shift().forEach(function (id) { t.guests.push(id); });
+      }
+    }
+
     save(); render();
-    toast(left.length ? left.reduce(function (n, u) { return n + u.length; }, 0) + ' guests left over — add a table' : 'Shuffled');
+    toast('Seated by family');
   }
 
   function addTable(silent) {
