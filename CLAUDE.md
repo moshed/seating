@@ -28,5 +28,10 @@ Paste a guest list, get tables. Guests drag between tables. Couples are linked a
 - Verified against the real 246-household wedding sheet: 311 guests, 105 couples, 32 tables, no couple split.
 - Seating is random only. There are no affinity rules / no "keep these apart" logic yet.
 
+## The real guest list
+`guests.tsv` is the actual Leo & Dani wedding list (246 households, 311 confirmed), exported from `LEO AND DANI SEATING CHART.xlsx` with the original 7 columns intact. The **Load the Leo & Dani guest list** button in the import modal fetches it and drops it in the textarea, so it goes through the same column parser as a manual paste — no separate code path.
+
+⚠️ **The repo and the site are public, so this file is publicly readable.** Moshe asked for it to ship with the app ("so it can be imported by anyone using the app") and was told. To pull it: delete `guests.tsv`, the `#import-load` button in `index.html`, and its handler in `app.js`.
+
 ## Not done yet
-- No sync. State is per-browser localStorage — editing on the phone does not show up on the Mac. Use Download CSV / Copy chart as text to move it, or wire up Supabase if it needs to be shared.
+- No sharing or sync — asked for and explicitly declined 4 Aug 2026 ("i dont actually need it to be shared"). State is per-browser localStorage — editing on the phone does not show up on the Mac. Use Download CSV / Copy chart as text to move it, or wire up Supabase if it needs to be shared.

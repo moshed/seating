@@ -688,6 +688,9 @@
     var txt = state.guests.length ? guestsToText() : '';
     $('#import-text').value = txt;
     $('#import-replace').checked = true;
+    var lb = $('#import-load');
+    lb.disabled = false;
+    lb.textContent = 'Load the Leo & Dani guest list';
     openModal('#modal-import');
     $('#import-text').focus();
   });
@@ -703,6 +706,27 @@
     });
     return lines.join('\n');
   }
+
+  // The real wedding list ships with the app so nobody has to find the
+  // spreadsheet — it goes through the same column parser as a fresh paste.
+  $('#import-load').addEventListener('click', function () {
+    var btn = this;
+    btn.disabled = true; btn.textContent = 'Loading…';
+    fetch('guests.tsv', { cache: 'no-cache' })
+      .then(function (r) {
+        if (!r.ok) throw new Error(r.status);
+        return r.text();
+      })
+      .then(function (t) {
+        $('#import-text').value = t;
+        btn.textContent = 'Loaded — now press Save';
+      })
+      .catch(function () {
+        btn.disabled = false;
+        btn.textContent = 'Load the Leo & Dani guest list';
+        toast('Could not load the list');
+      });
+  });
 
   $('#import-save').addEventListener('click', function () {
     var res = parseList($('#import-text').value, $('#import-noreply').checked);
