@@ -52,11 +52,16 @@
 <div class="modal" id="modal-import" hidden>
   <div class="sheet">
     <h3>Guest list</h3>
-    <p class="hint">One party per line. Use <b>&amp;</b> or <b>+</b> to link a couple —
-      e.g. <code>David &amp; Sarah Klein</code>. A plain name is a single guest.</p>
-    <textarea id="import-text" spellcheck="false" placeholder="David &amp; Sarah Klein&#10;Rachel Berger&#10;Yaakov + Miriam Stein"></textarea>
+    <p class="hint">Two ways in:<br>
+      <b>1. Type it</b> — one party per line. <code>David &amp; Sarah Klein</code> is a linked
+      couple; a plain name is a single guest.<br>
+      <b>2. Paste from Excel</b> — select the cells <i>including the header row</i> and paste.
+      It reads <code>Fname</code>, <code>Lname</code>, <code>Spouse</code>, <code>responses</code>
+      (<code>yes-2</code> = two coming) and <code>Table #</code> if you've filled it in.</p>
+    <textarea id="import-text" spellcheck="false" placeholder="David &amp; Sarah Klein&#10;Rachel Berger&#10;Yaakov + Miriam Stein&#10;&#10;…or paste your spreadsheet columns here"></textarea>
     <div class="sheet-actions">
       <label class="chk"><input type="checkbox" id="import-replace" checked> Replace current list</label>
+      <label class="chk"><input type="checkbox" id="import-noreply"> Include no-RSVP</label>
       <span class="spacer"></span>
       <button class="btn ghost" data-close>Cancel</button>
       <button class="btn primary" id="import-save">Save</button>

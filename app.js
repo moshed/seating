@@ -110,9 +110,17 @@
 
   var SPLIT = /\s+(?:&|\+|and)\s+/i;
 
-  function parseList(text) {
+  // Returns { guests, assign: {guestId: tableName}, skipped: n }
+  function parseList(text, includeNoReply) {
+    var lines = text.split(/\r?\n/);
+    var tabbed = 0;
+    lines.forEach(function (l) { if (l.indexOf('\t') !== -1) tabbed++; });
+    return tabbed >= 3 ? parseColumns(lines, includeNoReply) : parsePlain(lines);
+  }
+
+  function parsePlain(lines) {
     var out = [];
-    text.split(/\r?\n/).forEach(function (line) {
+    lines.forEach(function (line) {
       line = line.replace(/^\s*[-*•]\s*/, '').trim();
       if (!line) return;
       var parts = line.split(SPLIT).map(function (p) { return p.trim(); }).filter(Boolean);
@@ -122,15 +130,97 @@
         if (a.indexOf(' ') === -1 && b.indexOf(' ') !== -1) {
           a = a + ' ' + b.split(/\s+/).slice(-1)[0];
         }
-        var ga = { id: uid(), name: a, partner: null };
-        var gb = { id: uid(), name: b, partner: null };
-        ga.partner = gb.id; gb.partner = ga.id;
-        out.push(ga, gb);
+        var pair = couple(a, b);
+        out.push(pair[0], pair[1]);
       } else {
         out.push({ id: uid(), name: parts[0], partner: null });
       }
     });
-    return out;
+    return { guests: out, assign: {}, skipped: 0 };
+  }
+
+  function couple(a, b) {
+    var ga = { id: uid(), name: a, partner: null };
+    var gb = { id: uid(), name: b, partner: null };
+    ga.partner = gb.id; gb.partner = ga.id;
+    return [ga, gb];
+  }
+
+  /* Spreadsheet paste (tab separated, as copied straight out of Excel).
+     Columns are found by header name, so column order does not matter.
+     Understands the wedding-list shape: Sal | Fname | Lname | responses |
+     Extra | Spouse | Table #, where "yes-2" means two people are coming. */
+  function parseColumns(lines, includeNoReply) {
+    var rows = lines.map(function (l) { return l.split('\t'); })
+                    .filter(function (r) {
+                      return r.some(function (c) { return String(c).trim(); });
+                    });
+    var pats = {
+      fname: /^\s*(f\s*[-_ ]?name|first)/i,
+      lname: /^\s*(l\s*[-_ ]?name|last|surname)/i,
+      spouse: /spouse|wife|partner/i,
+      resp: /response|rsvp|attend|coming/i,
+      sal: /^\s*(sal|salut|title|prefix)/i,
+      tbl: /table/i
+    };
+    var head = -1, col = {};
+    for (var i = 0; i < rows.length && head === -1; i++) {
+      var found = {};
+      rows[i].forEach(function (c, j) {
+        Object.keys(pats).forEach(function (k) {
+          if (found[k] === undefined && pats[k].test(String(c).trim())) found[k] = j;
+        });
+      });
+      if (found.fname !== undefined || found.lname !== undefined) { head = i; col = found; }
+    }
+    if (head === -1) return { guests: [], assign: {}, skipped: 0, error: 'noheader' };
+
+    var guests = [], assign = {}, skipped = 0;
+    var cell = function (r, k) {
+      return col[k] === undefined ? '' : String(r[col[k]] === undefined ? '' : r[col[k]]).trim();
+    };
+
+    rows.slice(head + 1).forEach(function (r) {
+      var fn = cell(r, 'fname'), ln = cell(r, 'lname');
+      if (!fn && !ln) return;
+      var sal = cell(r, 'sal'), sp = cell(r, 'spouse'),
+          resp = cell(r, 'resp'), tbl = cell(r, 'tbl');
+
+      var n;
+      if (col.resp === undefined) {
+        n = sp && sp.toLowerCase() !== fn.toLowerCase() ? 2 : 1;
+      } else {
+        var m = resp.match(/\d+/);
+        if (m) n = parseInt(m[0], 10);
+        else if (/yes/i.test(resp)) n = 1;
+        else n = 0;                                  // blank = no reply yet
+      }
+      if (n < 1) {
+        if (!includeNoReply) { skipped++; return; }
+        n = sp && sp.toLowerCase() !== fn.toLowerCase() ? 2 : 1;
+      }
+
+      var a = (fn + ' ' + ln).trim();
+      var mine = [];
+      if (n >= 2) {
+        var b;
+        if (sp && sp.toLowerCase() !== fn.toLowerCase()) b = (sp + ' ' + ln).trim();
+        else if (/and\s+(mrs|dr|rabbi)/i.test(sal)) b = ('Mrs. ' + ln).trim();
+        else b = 'Guest of ' + a;
+        var pair = couple(a, b);
+        mine.push(pair[0], pair[1]);
+        for (var k = 2; k < n; k++) {
+          mine.push({ id: uid(), name: 'Guest ' + (k - 1) + ' of ' + a, partner: null });
+        }
+      } else {
+        mine.push({ id: uid(), name: a, partner: null });
+      }
+      mine.forEach(function (g) {
+        guests.push(g);
+        if (tbl) assign[g.id] = tbl;
+      });
+    });
+    return { guests: guests, assign: assign, skipped: skipped };
   }
 
   /* ---------------- seating ---------------- */
@@ -615,18 +705,49 @@
   }
 
   $('#import-save').addEventListener('click', function () {
-    var parsed = parseList($('#import-text').value);
-    if (!parsed.length) { toast('Nothing to import'); return; }
+    var res = parseList($('#import-text').value, $('#import-noreply').checked);
+    if (res.error === 'noheader') {
+      toast('Include the header row (Fname / Lname) when pasting from Excel');
+      return;
+    }
+    if (!res.guests.length) { toast('Nothing to import'); return; }
+
     if ($('#import-replace').checked) {
-      state.guests = parsed;
+      state.guests = res.guests;
       state.tables.forEach(function (t) { t.guests = []; });
     } else {
-      state.guests = state.guests.concat(parsed);
+      state.guests = state.guests.concat(res.guests);
     }
     closeModals();
-    ensureTables();
+
+    // Honour a filled-in "Table #" column: those guests get seated where the
+    // spreadsheet says, everyone else is shuffled into whatever is left.
+    var placed = 0;
+    Object.keys(res.assign).forEach(function (gid) {
+      var name = res.assign[gid];
+      var t = null;
+      for (var i = 0; i < state.tables.length; i++) {
+        if (state.tables[i].name.toLowerCase() === name.toLowerCase() ||
+            state.tables[i].name.toLowerCase() === ('table ' + name).toLowerCase()) {
+          t = state.tables[i]; break;
+        }
+      }
+      if (!t) {
+        t = { id: uid(), name: /^\d+$/.test(name) ? 'Table ' + name : name,
+              seats: state.defaultSeats, guests: [] };
+        state.tables.push(t);
+      }
+      if (t.guests.indexOf(gid) === -1) { t.guests.push(gid); placed++; }
+    });
+
     save();
-    randomize();
+    if (placed) {
+      ensureTables();
+      save(); render();
+    } else {
+      randomize();
+    }
+    if (res.skipped) toast(res.skipped + ' households with no RSVP were left out');
   });
 
   $('#btn-more').addEventListener('click', function () { openModal('#modal-more'); });
