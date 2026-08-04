@@ -956,6 +956,13 @@
   $('#import-pick').addEventListener('click', function () { $('#import-file').click(); });
 
   $('#btn-more').addEventListener('click', function () { openModal('#modal-more'); });
+  $('#mm-default').addEventListener('click', function () {
+    if (!confirm('Throw away this chart and start again from the Leo & Dani guest list?')) return;
+    closeModals();
+    state = blank();
+    save();
+    loadDefaultList();
+  });
   $('#mm-print').addEventListener('click', function () { closeModals(); setTimeout(function () { window.print(); }, 80); });
   $('#mm-csv').addEventListener('click', function () {
     closeModals(); download('seating.csv', csv(), 'text/csv;charset=utf-8');
