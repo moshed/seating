@@ -664,9 +664,92 @@
       gid: el.dataset.gid,
       el: el,
       sx: ev.clientX, sy: ev.clientY,
+      touch: ev.pointerType === 'touch',
       started: false, ghost: null, ids: null, zone: null, hot: null
     };
   });
+
+  /* Auto-scroll while dragging near an edge. Without this a phone is stuck:
+     you pick a name up and the table you want is off-screen with no way to
+     reach it, which reads as "dragging doesn't work". */
+  var scrollRaf = 0, scrollVec = null;
+
+  function edgeScroll(x, y) {
+    var pb = $('#pool-body'), r = pb.getBoundingClientRect(), el = null, top, bottom;
+    if (pb.scrollHeight > pb.clientHeight + 4 &&
+        x >= r.left && x <= r.right && y >= r.top && y <= r.bottom) {
+      el = pb; top = r.top; bottom = r.bottom;
+    } else {
+      top = 0; bottom = window.innerHeight;
+    }
+    var band = 72, dir = 0;
+    if (y < top + band) dir = -1;
+    else if (y > bottom - band) dir = 1;
+    scrollVec = dir ? { el: el, dir: dir } : null;
+    if (!scrollVec) return;
+    step();                                   // move now, don't wait for a frame
+    if (!scrollRaf) scrollRaf = requestAnimationFrame(edgeTick);
+  }
+
+  function step() {
+    if (!scrollVec) return;
+    if (scrollVec.el) scrollVec.el.scrollTop += scrollVec.dir * 14;
+    else window.scrollBy(0, scrollVec.dir * 14);
+  }
+
+  // keeps scrolling while the finger is held still at the edge
+  function edgeTick() {
+    scrollRaf = 0;
+    if (!drag || !scrollVec) return;
+    step();
+    scrollRaf = requestAnimationFrame(edgeTick);
+  }
+
+  function stopEdgeScroll() {
+    scrollVec = null;
+    if (scrollRaf) { cancelAnimationFrame(scrollRaf); scrollRaf = 0; }
+  }
+
+  /* Tap-to-move. On a phone, hauling a name across 32 tables is hopeless, so
+     a tap (pointer down and up with no movement) opens a table picker. */
+  function openMove(gid) {
+    var g = guest(gid);
+    if (!g) return;
+    var ids = unit(gid);
+    $('#move-title').textContent = ids.length > 1
+      ? 'Move ' + g.name + ' + partner to…'
+      : 'Move ' + g.name + ' to…';
+
+    var list = $('#move-list');
+    list.innerHTML = '';
+    var here = tableOf(gid);
+
+    var add = function (label, sub, zone, current) {
+      var b = document.createElement('button');
+      b.className = 'menu-item move-item' + (current ? ' current' : '');
+      b.type = 'button';
+      var t = document.createElement('span');
+      t.className = 'mi-name';
+      t.textContent = label;
+      var s = document.createElement('span');
+      s.className = 'mi-sub';
+      s.textContent = sub;
+      b.appendChild(t); b.appendChild(s);
+      b.addEventListener('click', function () {
+        moveUnit(ids, zone);
+        save(); render(); closeModals();
+        toast(g.name + ' → ' + label);
+      });
+      list.appendChild(b);
+    };
+
+    state.tables.forEach(function (t) {
+      add(t.name, t.guests.length + '/' + t.seats, t.id, here && here.id === t.id);
+    });
+    add('Not seated', unseated().length + ' waiting', 'pool', !here);
+
+    openModal('#modal-move');
+  }
 
   document.addEventListener('pointermove', function (ev) {
     if (!drag) return;
@@ -692,6 +775,7 @@
       zone.classList.toggle('hot', ok);
       zone.classList.toggle('no', !ok);
     }
+    edgeScroll(ev.clientX, ev.clientY);
   }, { passive: false });
 
   function startDrag(ev) {
@@ -724,7 +808,12 @@
   function endDrag(commit) {
     if (!drag) return;
     var d = drag; drag = null;
-    if (!d.started) return;
+    stopEdgeScroll();
+    if (!d.started) {
+      // a tap, not a drag — on touch that means "show me where to put them"
+      if (commit && d.touch && !linking) openMove(d.gid);
+      return;
+    }
     if (d.ghost) d.ghost.remove();
     if (d.hot) d.hot.classList.remove('hot', 'no');
     document.body.classList.remove('dragging');
