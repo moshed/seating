@@ -30,23 +30,25 @@ The committed `sb_publishable_…` key is the anon key and is meant to ship in c
 code. It grants nothing beyond executing those two functions, so this is not a breach of
 the "keys only in edge functions" rule, which is about *secret* keys.
 
-## One shared chart by default
-`DEFAULT_CHART` in `app.js` is a fixed uuid every browser syncs to with no setup —
-open the page anywhere and you are on the same chart. Moshe asked for exactly this
-("it should write automatically"); the earlier build required pasting a code, so a new
-browser silently kept its own copy and nothing reached the server.
+## A chart per browser, shared on purpose
+There is **no global chart**. The first time a browser opens the app it mints its own
+uuid (`newChartId()`), seeds it from `guests.tsv` and pushes — saving to the server needs
+no button, but the chart is that browser's alone. A private/incognito window therefore
+gets a *different* chart, which is the point: one person's edits must not land on
+everyone.
 
-That uuid ships in the public `app.js`, so **anyone who can open the page can edit the
-real chart**. The password is the only gate, and it is a doormat. That is the accepted
-trade.
+Sharing is opt-in: copy the code from More -> "Share this chart" and paste it on the other
+device. From then on both are on the same row and either can edit or wipe it. "Start a new
+chart" (`forkChart`) moves this device to a fresh code and leaves anyone else on the old
+one.
 
-`firstPull()` runs on boot: whatever the server holds wins, because that is the shared
-truth. Only when the server has no row at all does the browser seed it from `guests.tsv`
-and push. A row that exists but is *empty* is respected — someone deleted everything on
-purpose, so it stays deleted everywhere; the browser just opens the Guests box so there
-is a way back. Verified across two browsers: wipe on one propagates to the other, and a
-restore from either brings all 311 back. "Start a separate chart" (`forkChart`) mints a fresh uuid for a private copy;
-"Go back to the shared chart" returns to `DEFAULT_CHART`.
+This flip-flopped twice during the build. The rule that satisfies both asks: **always
+write to the server, never share without a code.**
+
+`firstPull()` runs on boot: whatever the server holds wins for that code. Only when the
+row does not exist does the browser seed it. A row that exists but is *empty* is
+respected — someone deleted everything on purpose, so it stays deleted for everyone on
+that code; the browser just opens the Guests box so there is a way back.
 
 ## Client behaviour (`app.js`)
 - `localStorage['seating.chart']` holds the uuid, `seating.rev` the last seen revision.

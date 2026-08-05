@@ -88,7 +88,7 @@
     <h3>More</h3>
     <div class="menu">
       <button class="menu-item" id="mm-default">Reset to the Leo &amp; Dani guest list</button>
-      <button class="menu-item" id="mm-link">Sharing &amp; chart code…</button>
+      <button class="menu-item" id="mm-link">Share this chart…</button>
       <button class="menu-item" id="mm-print">Print / PDF the chart</button>
       <button class="menu-item" id="mm-csv">Download CSV</button>
       <button class="menu-item" id="mm-copy">Copy chart as text</button>
@@ -100,35 +100,27 @@
   </div>
 </div>
 
-<!-- Shared chart -->
+<!-- Chart code / sharing -->
 <div class="modal" id="modal-link" hidden>
   <div class="sheet narrow">
-    <h3>This chart</h3>
+    <h3>Share this chart</h3>
+    <p class="hint">Your chart is saved online automatically. It is <b>yours alone</b> —
+      nobody sees it unless you hand them this code.</p>
 
-    <div id="link-shared" hidden>
-      <p class="hint">Everyone who opens this page — your Mac, your phone, anyone you
-        give the password to — is looking at <b>the same chart</b>. Changes show up on
-        the other screens within about five seconds. Nothing to set up.</p>
-    </div>
-
-    <div id="link-private" hidden>
-      <p class="hint">This device is on a <b>separate</b> chart of its own. Changes here
-        do not reach anyone else.</p>
-      <button class="btn wide" id="link-rejoin">Go back to the shared chart</button>
-    </div>
-
-    <p class="hint mt">Chart code:</p>
+    <p class="hint mt">Your chart code:</p>
     <div class="codebox" id="link-code"></div>
     <div class="linkrow">
       <button class="btn primary" id="link-copy">Copy code</button>
-      <button class="btn" id="link-fork">Start a separate chart</button>
+      <button class="btn" id="link-fork">Start a new chart</button>
     </div>
 
-    <p class="hint mt">Open someone else's chart with their code:</p>
+    <p class="hint mt">Got a code from someone else? Open their chart:</p>
     <div class="linkrow">
       <input id="link-join-input" placeholder="paste a code" autocomplete="off" spellcheck="false">
       <button class="btn" id="link-join">Open</button>
     </div>
+    <p class="hint small">Once two devices are on the same code they share one chart —
+      either can move people, and either can wipe it.</p>
 
     <p class="hint" id="link-note"></p>
     <div class="sheet-actions"><span class="spacer"></span><button class="btn ghost" data-close>Close</button></div>

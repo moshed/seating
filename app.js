@@ -43,12 +43,11 @@
      so the only way in is knowing the code. Last write wins — this is for
      one person on two devices, not a room full of editors. */
 
-  // Every browser syncs to this one chart unless it has deliberately joined
-  // another. No linking step: open the page anywhere and you are on the same
-  // chart. The id ships in this file, so anyone who can open the page can
-  // edit the chart — that is the intent, the password is the only gate.
-  var DEFAULT_CHART = '6389c3f9-6eb3-4d2c-9487-9e475217c705';
-  var CHART_KEY = 'seating.chart';           // v2 key; ignores old manual links
+  // Each browser gets its OWN chart id the first time it opens, and saves to
+  // the server straight away — no button to press. Charts are private to that
+  // id; two devices only see each other's edits once one of them has entered
+  // the other's code.
+  var CHART_KEY = 'seating.chart';
 
   var SYNC = {
     url: 'https://atqhfbaurrmivjarowco.supabase.co',
@@ -116,7 +115,7 @@
     paintLink();
   }
 
-  // Not "stop syncing" any more — split off a private chart of your own.
+  // Move this device onto a brand-new code, leaving anyone on the old one there.
   function forkChart() {
     var id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : uuidish();
     SYNC.rev = 0;
@@ -124,16 +123,18 @@
       .then(function (rev) {
         SYNC.rev = rev;
         startSync(id);
-        linkNote('This device is now on its own separate chart.');
-        toast('Separate chart created');
+        linkNote('This device is on a new code now. Share it to bring others over.');
+        toast('New chart code created');
       })
       .catch(function () { toast('Could not reach the server'); });
   }
 
+  function newChartId() {
+    return (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : uuidish();
+  }
+
   function paintLink() {
     $('#link-code').textContent = SYNC.id || '';
-    $('#link-shared').hidden = SYNC.id !== DEFAULT_CHART;
-    $('#link-private').hidden = SYNC.id === DEFAULT_CHART;
     render();
   }
 
@@ -657,7 +658,7 @@
     $('#stats').textContent =
       state.guests.length + ' guests · ' + seated + ' seated · ' +
       state.tables.length + ' tables · ' + seats + ' seats' +
-      (SYNC.id === DEFAULT_CHART ? ' · shared' : SYNC.id ? ' · private copy' : '');
+      (SYNC.id ? ' · saved online' : '');
 
     // over-capacity list
     var over = state.tables.filter(function (t) { return t.guests.length > t.seats; });
@@ -1318,15 +1319,8 @@
   });
 
   $('#link-fork').addEventListener('click', function () {
-    if (!confirm('Make this device its own separate chart? It stops sharing with everyone else.')) return;
+    if (!confirm('Start a brand-new chart on a new code? Anyone sharing the current code keeps the old one.')) return;
     forkChart();
-  });
-
-  $('#link-rejoin').addEventListener('click', function () {
-    SYNC.rev = 0;
-    startSync(DEFAULT_CHART);
-    firstPull();
-    toast('Back on the shared chart');
   });
 
   function uuidish() {
@@ -1456,7 +1450,7 @@
       id = localStorage.getItem(CHART_KEY);
       rev = parseInt(localStorage.getItem('seating.rev'), 10) || 0;
     } catch (e) {}
-    if (!id) { id = DEFAULT_CHART; rev = 0; }      // shared by default
+    if (!id) { id = newChartId(); rev = 0; state = blank(); }  // a chart of its own
     SYNC.rev = rev;
     startSync(id);
     render();
