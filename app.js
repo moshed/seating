@@ -145,13 +145,22 @@
     rpc('seat_chart_get', { p_id: SYNC.id, p_rev: 0 })
       .then(function (res) {
         if (res && res.doc) {
+          var remoteEmpty = !(res.doc.guests && res.doc.guests.length);
+          // A refresh must never cost someone their chart. If the server copy
+          // is empty but this browser holds real work, keep the work and push
+          // it up instead of adopting the emptiness.
+          if (remoteEmpty && state.guests.length) {
+            SYNC.rev = res.rev;
+            pushChart();
+            render();
+            return;
+          }
           SYNC.rev = res.rev;
           try { localStorage.setItem('seating.rev', String(res.rev)); } catch (e) {}
           state = res.doc;
           state.defaultSeats = state.defaultSeats || 10;
           saveLocal();
           render();
-          // somebody deleted everything — leave it deleted, but offer a way back
           if (!state.guests.length && !state.tables.length) {
             setTimeout(function () { $('#btn-import').click(); }, 300);
           }
@@ -480,7 +489,6 @@
     var done = function (t) {
       if (!t || !t.trim()) { toast('That file looked empty'); return; }
       $('#import-text').value = t;
-      $('#import-replace').checked = true;
       openModal('#modal-import');
       toast('Loaded ' + file.name + ' — check it, then press Save');
     };
@@ -1175,9 +1183,7 @@
   $('#btn-linkdone').addEventListener('click', function () { setLinking(false); });
 
   $('#btn-import').addEventListener('click', function () {
-    var txt = state.guests.length ? guestsToText() : '';
-    $('#import-text').value = txt;
-    $('#import-replace').checked = true;
+    $('#import-text').value = '';
     var lb = $('#import-load');
     lb.disabled = false;
     lb.textContent = 'Load the Leo & Dani guest list';
@@ -1219,36 +1225,52 @@
   });
 
   $('#import-save').addEventListener('click', function () {
-    var r = applyImport($('#import-text').value, $('#import-replace').checked,
-                        $('#import-noreply').checked);
+    var r = addGuests($('#import-text').value, $('#import-noreply').checked);
     if (r === 'noheader') toast('Include the header row (Fname / Lname) when pasting from Excel');
-    else if (r === 'empty') toast('Nothing to import');
+    else if (r === 'empty') toast('Nothing to add');
   });
 
-  function applyImport(text, replace, noreply) {
+  /* The Guests box only ever ADDS. People already on the list are skipped by
+     name, everyone keeps their table, and new names land in Not seated.
+     replaceAll() is the destructive path and is reachable only from
+     "Reset to the Leo & Dani guest list" and the very first seed. */
+  function addGuests(text, noreply) {
     var res = parseList(text, noreply);
     if (res.error === 'noheader') return 'noheader';
     if (!res.guests.length) return 'empty';
 
-    if (replace) {
-      state.guests = res.guests;
-      state.tables.forEach(function (t) { t.guests = []; });
-    } else {
-      state.guests = state.guests.concat(res.guests);
-    }
-    closeModals();
+    var have = {}, isNew = {}, map = {};
+    state.guests.forEach(function (g) { have[key(g.name)] = g; });
 
-    // Honour a filled-in "Table #" column: those guests get seated where the
-    // spreadsheet says, everyone else is shuffled into whatever is left.
+    var added = 0, dupes = 0;
+    res.guests.forEach(function (g) {
+      var k = key(g.name);
+      if (have[k]) { map[g.id] = have[k].id; dupes++; return; }
+      var ng = { id: uid(), name: g.name.trim(), partner: null };
+      have[k] = ng; map[g.id] = ng.id; isNew[ng.id] = 1;
+      state.guests.push(ng);
+      added++;
+    });
+
+    // couple links, but never re-pair two people who were already here
+    res.guests.forEach(function (g) {
+      if (!g.partner) return;
+      var a = guest(map[g.id]), b = guest(map[g.partner]);
+      if (!a || !b || a === b) return;
+      if (a.partner || b.partner) return;
+      if (!isNew[a.id] && !isNew[b.id]) return;
+      a.partner = b.id; b.partner = a.id;
+    });
+
+    // a Table # in the sheet seats the new arrivals; nobody already seated moves
     var placed = 0;
-    Object.keys(res.assign).forEach(function (gid) {
-      var name = res.assign[gid];
-      var t = null;
+    Object.keys(res.assign).forEach(function (oldId) {
+      var gid = map[oldId];
+      if (!gid || !isNew[gid]) return;
+      var name = res.assign[oldId], t = null;
       for (var i = 0; i < state.tables.length; i++) {
-        if (state.tables[i].name.toLowerCase() === name.toLowerCase() ||
-            state.tables[i].name.toLowerCase() === ('table ' + name).toLowerCase()) {
-          t = state.tables[i]; break;
-        }
+        var tn = state.tables[i].name.toLowerCase();
+        if (tn === name.toLowerCase() || tn === ('table ' + name).toLowerCase()) { t = state.tables[i]; break; }
       }
       if (!t) {
         t = { id: uid(), name: /^\d+$/.test(name) ? 'Table ' + name : name,
@@ -1258,19 +1280,29 @@
       if (t.guests.indexOf(gid) === -1) { t.guests.push(gid); placed++; }
     });
 
+    closeModals();
     save();
-    if (!replace) {
-      // Adding people must never disturb who is already sitting where. New
-      // names land in Not seated (unless the sheet named a table for them).
-      render();
-      toast(res.guests.length + ' added' + (placed ? '' : ' to Not seated'));
-    } else if (placed) {
-      ensureTables();
-      save(); render();
-    } else {
-      randomize();
-    }
-    if (res.skipped) toast(res.skipped + ' households with no RSVP were left out');
+    render();
+    toast(added
+      ? added + ' added' + (placed ? '' : ' to Not seated') + (dupes ? ' · ' + dupes + ' already on the list' : '')
+      : 'Everyone on that list is already here');
+    if (res.skipped) setTimeout(function () {
+      toast(res.skipped + ' households with no RSVP were left out');
+    }, 2400);
+    return 'ok';
+  }
+
+  function key(n) { return String(n || '').trim().toLowerCase().replace(/\s+/g, ' '); }
+
+  // Wholesale replacement — reset and first-run seed only.
+  function replaceAll(text) {
+    var res = parseList(text, false);
+    if (!res.guests.length) return 'empty';
+    state.guests = res.guests;
+    state.tables.forEach(function (t) { t.guests = []; });
+    closeModals();
+    save();
+    randomize();
     return 'ok';
   }
 
@@ -1444,7 +1476,7 @@
     fetch('guests.tsv', { cache: 'no-cache' })
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
       .then(function (t) {
-        if (applyImport(t, true, false) !== 'ok') throw new Error('parse');
+        if (replaceAll(t) !== 'ok') throw new Error('parse');
       })
       .catch(function () { $('#btn-import').click(); });
   }

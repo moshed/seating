@@ -57,14 +57,14 @@
 <!-- Import modal -->
 <div class="modal" id="modal-import" hidden>
   <div class="sheet">
-    <h3>Guest list</h3>
-    <p class="hint">Two ways in:<br>
-      <b>1. Type it</b> — one party per line. <code>David &amp; Sarah Klein</code> is a linked
+    <h3>Add guests</h3>
+    <p class="hint">New names go to <b>Not seated</b>. Everyone already seated stays exactly
+      where they are, and anyone already on the list is skipped.<br>
+      <b>Type it</b> — one party per line. <code>David &amp; Sarah Klein</code> is a linked
       couple; a plain name is a single guest.<br>
-      <b>2. Drop the spreadsheet</b> — drag the .xlsx straight onto this page, or paste the
-      cells <i>including the header row</i>.
-      It reads <code>Fname</code>, <code>Lname</code>, <code>Spouse</code>, <code>responses</code>
-      (<code>yes-2</code> = two coming) and <code>Table #</code> if you've filled it in.</p>
+      <b>Or drop the spreadsheet</b> — drag the .xlsx onto this page, or paste the cells
+      <i>including the header row</i> (<code>Fname</code>, <code>Lname</code>,
+      <code>Spouse</code>, <code>responses</code>, <code>Table #</code>).</p>
     <textarea id="import-text" spellcheck="false" placeholder="David &amp; Sarah Klein&#10;Rachel Berger&#10;Yaakov + Miriam Stein&#10;&#10;…or paste your spreadsheet columns here"></textarea>
     <p class="loadrow">
       <button class="btn small" id="import-load">Load the Leo &amp; Dani guest list</button>
@@ -73,12 +73,10 @@
       <input type="file" id="import-file" accept=".xlsx,.xlsm,.csv,.tsv,.txt" hidden>
     </p>
     <div class="sheet-actions">
-      <label class="chk"><input type="checkbox" id="import-replace" checked> Replace &amp; re-seat everyone</label>
       <label class="chk"><input type="checkbox" id="import-noreply"> Include no-RSVP</label>
-      <span class="loadnote">Untick “Replace” to just add names — seating stays put.</span>
       <span class="spacer"></span>
       <button class="btn ghost" data-close>Cancel</button>
-      <button class="btn primary" id="import-save">Save</button>
+      <button class="btn primary" id="import-save">Add</button>
     </div>
   </div>
 </div>
