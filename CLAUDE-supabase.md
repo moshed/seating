@@ -30,8 +30,25 @@ The committed `sb_publishable_…` key is the anon key and is meant to ship in c
 code. It grants nothing beyond executing those two functions, so this is not a breach of
 the "keys only in edge functions" rule, which is about *secret* keys.
 
+## One shared chart by default
+`DEFAULT_CHART` in `app.js` is a fixed uuid every browser syncs to with no setup —
+open the page anywhere and you are on the same chart. Moshe asked for exactly this
+("it should write automatically"); the earlier build required pasting a code, so a new
+browser silently kept its own copy and nothing reached the server.
+
+That uuid ships in the public `app.js`, so **anyone who can open the page can edit the
+real chart**. The password is the only gate, and it is a doormat. That is the accepted
+trade.
+
+`firstPull()` runs on boot: whatever the server holds wins, because that is the shared
+truth. Only when the server has no row at all does the browser seed it from `guests.tsv`
+and push. "Start a separate chart" (`forkChart`) mints a fresh uuid for a private copy;
+"Go back to the shared chart" returns to `DEFAULT_CHART`.
+
 ## Client behaviour (`app.js`)
-- `localStorage['seating.link']` holds the uuid, `seating.rev` the last seen revision.
+- `localStorage['seating.chart']` holds the uuid, `seating.rev` the last seen revision.
+  The key was bumped from `seating.link` so browsers still pointing at a hand-made code
+  from the old build fall back to the shared chart.
 - Every `save()` schedules a push 900 ms later (debounced).
 - A 5 s poll calls `seat_chart_get` with the last rev; a newer doc replaces local state
   and re-renders. **Polling is skipped while a drag is in progress** so the board is

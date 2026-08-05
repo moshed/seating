@@ -43,6 +43,13 @@
      so the only way in is knowing the code. Last write wins — this is for
      one person on two devices, not a room full of editors. */
 
+  // Every browser syncs to this one chart unless it has deliberately joined
+  // another. No linking step: open the page anywhere and you are on the same
+  // chart. The id ships in this file, so anyone who can open the page can
+  // edit the chart — that is the intent, the password is the only gate.
+  var DEFAULT_CHART = '6389c3f9-6eb3-4d2c-9487-9e475217c705';
+  var CHART_KEY = 'seating.chart';           // v2 key; ignores old manual links
+
   var SYNC = {
     url: 'https://atqhfbaurrmivjarowco.supabase.co',
     key: 'sb_publishable_G44hmJHuAwEcoxq0QPWI7w_BWt_owiB',
@@ -103,25 +110,55 @@
 
   function startSync(id) {
     SYNC.id = id;
-    try { localStorage.setItem('seating.link', id); } catch (e) {}
+    try { localStorage.setItem(CHART_KEY, id); } catch (e) {}
     clearInterval(SYNC.poll);
     SYNC.poll = setInterval(pullChart, 5000);
     paintLink();
   }
 
-  function stopSync() {
-    SYNC.id = null; SYNC.rev = 0;
-    clearInterval(SYNC.poll); SYNC.poll = 0;
-    try { localStorage.removeItem('seating.link'); localStorage.removeItem('seating.rev'); } catch (e) {}
-    paintLink();
+  // Not "stop syncing" any more — split off a private chart of your own.
+  function forkChart() {
+    var id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : uuidish();
+    SYNC.rev = 0;
+    rpc('seat_chart_put', { p_id: id, p_doc: state })
+      .then(function (rev) {
+        SYNC.rev = rev;
+        startSync(id);
+        linkNote('This device is now on its own separate chart.');
+        toast('Separate chart created');
+      })
+      .catch(function () { toast('Could not reach the server'); });
   }
 
   function paintLink() {
-    var on = !!SYNC.id;
-    $('#link-off').hidden = on;
-    $('#link-on').hidden = !on;
-    if (on) $('#link-code').textContent = SYNC.id;
+    $('#link-code').textContent = SYNC.id || '';
+    $('#link-shared').hidden = SYNC.id !== DEFAULT_CHART;
+    $('#link-private').hidden = SYNC.id === DEFAULT_CHART;
     render();
+  }
+
+  /* First contact with the server. Whatever the server holds wins, because
+     that is the shared chart. Only if the server has nothing at all does this
+     browser seed it from guests.tsv. */
+  function firstPull() {
+    rpc('seat_chart_get', { p_id: SYNC.id, p_rev: 0 })
+      .then(function (res) {
+        if (res && res.doc) {
+          SYNC.rev = res.rev;
+          try { localStorage.setItem('seating.rev', String(res.rev)); } catch (e) {}
+          state = res.doc;
+          state.defaultSeats = state.defaultSeats || 10;
+          saveLocal();
+          render();
+          return;
+        }
+        if (!state.guests.length) loadDefaultList();   // seeds, then save() pushes
+        else pushChart();
+      })
+      .catch(function () {
+        // offline — carry on with whatever this browser already had
+        if (!state.guests.length) loadDefaultList();
+      });
   }
 
   /* ---------------- model helpers ---------------- */
@@ -616,7 +653,7 @@
     $('#stats').textContent =
       state.guests.length + ' guests · ' + seated + ' seated · ' +
       state.tables.length + ' tables · ' + seats + ' seats' +
-      (SYNC.id ? ' · linked' : '');
+      (SYNC.id === DEFAULT_CHART ? ' · shared' : SYNC.id ? ' · private copy' : '');
 
     // over-capacity list
     var over = state.tables.filter(function (t) { return t.guests.length > t.seats; });
@@ -1272,20 +1309,20 @@
   $('#mm-link').addEventListener('click', function () {
     closeModals();
     paintLink();
-    linkNote(SYNC.id ? 'In sync.' : '');
+    linkNote('');
     openModal('#modal-link');
   });
 
-  $('#link-create').addEventListener('click', function () {
-    var id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : uuidish();
-    rpc('seat_chart_put', { p_id: id, p_doc: state })
-      .then(function (rev) {
-        SYNC.rev = rev;
-        startSync(id);
-        linkNote('Created. Type this code on the other device.');
-        toast('Link code created');
-      })
-      .catch(function () { toast('Could not reach the server'); });
+  $('#link-fork').addEventListener('click', function () {
+    if (!confirm('Make this device its own separate chart? It stops sharing with everyone else.')) return;
+    forkChart();
+  });
+
+  $('#link-rejoin').addEventListener('click', function () {
+    SYNC.rev = 0;
+    startSync(DEFAULT_CHART);
+    firstPull();
+    toast('Back on the shared chart');
   });
 
   function uuidish() {
@@ -1301,8 +1338,8 @@
       toast('That does not look like a code');
       return;
     }
-    if (state.guests.length &&
-        !confirm('Joining replaces the chart on this device with the shared one. Carry on?')) return;
+    if (id === SYNC.id) { toast('Already on that chart'); return; }
+    if (!confirm('Open that chart on this device instead of the current one?')) return;
     rpc('seat_chart_get', { p_id: id, p_rev: 0 })
       .then(function (res) {
         if (!res || !res.doc) { toast('No chart with that code'); return; }
@@ -1312,7 +1349,7 @@
         saveLocal();
         startSync(id);
         closeModals();
-        toast('Linked — this is now the shared chart');
+        toast('Opened that chart');
       })
       .catch(function () { toast('Could not reach the server'); });
   });
@@ -1323,11 +1360,7 @@
       .catch(function () { toast('Select the code and copy it'); });
   });
 
-  $('#link-stop').addEventListener('click', function () {
-    if (!confirm('Stop syncing? This device keeps its own copy of the chart.')) return;
-    stopSync();
-    toast('Unlinked');
-  });
+
 
   $('#mm-print').addEventListener('click', function () { closeModals(); setTimeout(function () { window.print(); }, 80); });
   $('#mm-csv').addEventListener('click', function () {
@@ -1414,15 +1447,16 @@
   }
 
   function start() {
-    var linked = null, rev = 0;
+    var id = null, rev = 0;
     try {
-      linked = localStorage.getItem('seating.link');
+      id = localStorage.getItem(CHART_KEY);
       rev = parseInt(localStorage.getItem('seating.rev'), 10) || 0;
     } catch (e) {}
-    if (linked) { SYNC.rev = rev; startSync(linked); pullChart(); }
-
+    if (!id) { id = DEFAULT_CHART; rev = 0; }      // shared by default
+    SYNC.rev = rev;
+    startSync(id);
     render();
-    if (!state.guests.length && !linked) loadDefaultList();
+    firstPull();
   }
 
   var isUnlocked = false;

@@ -46,9 +46,10 @@ The chart is behind a password (`adina123`). An inline script in `<head>` adds `
 
 ⚠️ **The repo and the site are public, so this file is publicly readable.** Moshe asked for it to ship with the app ("so it can be imported by anyone using the app") and was told. To pull it: delete `guests.tsv`, the `#import-load` button in `index.html`, and its handler in `app.js`.
 
-## Device linking
-More -> "Link another device" mints a uuid, uploads the chart and syncs it. Full schema,
-the security model and the client loop are in `CLAUDE-supabase.md` — read that before
+## Sharing
+Every browser syncs to one shared chart automatically — no code to paste. More ->
+"Sharing & chart code" shows the code and can fork a private copy. Full schema, the
+security model and the client loop are in `CLAUDE-supabase.md` — read that before
 touching anything sync related.
 
 ## Not done yet

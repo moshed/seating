@@ -88,7 +88,7 @@
     <h3>More</h3>
     <div class="menu">
       <button class="menu-item" id="mm-default">Reset to the Leo &amp; Dani guest list</button>
-      <button class="menu-item" id="mm-link">Link another device…</button>
+      <button class="menu-item" id="mm-link">Sharing &amp; chart code…</button>
       <button class="menu-item" id="mm-print">Print / PDF the chart</button>
       <button class="menu-item" id="mm-csv">Download CSV</button>
       <button class="menu-item" id="mm-copy">Copy chart as text</button>
@@ -100,33 +100,37 @@
   </div>
 </div>
 
-<!-- Link two devices -->
+<!-- Shared chart -->
 <div class="modal" id="modal-link" hidden>
   <div class="sheet narrow">
-    <h3>Link another device</h3>
+    <h3>This chart</h3>
 
-    <div id="link-off">
-      <p class="hint">Make a code here, type it on your phone, and the two stay in step —
-        change a table on one and it shows up on the other within a few seconds.</p>
-      <button class="btn primary wide" id="link-create">Create a link code</button>
-      <p class="hint mt">Already have a code from your other device?</p>
-      <div class="linkrow">
-        <input id="link-join-input" placeholder="paste the code" autocomplete="off" spellcheck="false">
-        <button class="btn" id="link-join">Join</button>
-      </div>
-      <p class="hint small">Anyone who has the code can see and change this chart, so keep it to yourself.</p>
+    <div id="link-shared" hidden>
+      <p class="hint">Everyone who opens this page — your Mac, your phone, anyone you
+        give the password to — is looking at <b>the same chart</b>. Changes show up on
+        the other screens within about five seconds. Nothing to set up.</p>
     </div>
 
-    <div id="link-on" hidden>
-      <p class="hint">Linked. Type this code on the other device:</p>
-      <div class="codebox" id="link-code"></div>
-      <div class="linkrow">
-        <button class="btn primary" id="link-copy">Copy code</button>
-        <button class="btn" id="link-stop">Unlink</button>
-      </div>
-      <p class="hint" id="link-note"></p>
+    <div id="link-private" hidden>
+      <p class="hint">This device is on a <b>separate</b> chart of its own. Changes here
+        do not reach anyone else.</p>
+      <button class="btn wide" id="link-rejoin">Go back to the shared chart</button>
     </div>
 
+    <p class="hint mt">Chart code:</p>
+    <div class="codebox" id="link-code"></div>
+    <div class="linkrow">
+      <button class="btn primary" id="link-copy">Copy code</button>
+      <button class="btn" id="link-fork">Start a separate chart</button>
+    </div>
+
+    <p class="hint mt">Open someone else's chart with their code:</p>
+    <div class="linkrow">
+      <input id="link-join-input" placeholder="paste a code" autocomplete="off" spellcheck="false">
+      <button class="btn" id="link-join">Open</button>
+    </div>
+
+    <p class="hint" id="link-note"></p>
     <div class="sheet-actions"><span class="spacer"></span><button class="btn ghost" data-close>Close</button></div>
   </div>
 </div>
