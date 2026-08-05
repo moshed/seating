@@ -65,20 +65,11 @@ that code; the browser just opens the Guests box so there is a way back.
   no-enumeration property above.
 
 
-## Version history — nothing is unrecoverable
-`seat_chart_history` snapshots **every** insert, update and delete on `seat_charts` via
-the `seat_chart_snapshot()` trigger, keeping the newest 100 versions per chart. Same
-lockdown as the main table: RLS on, no policies, `revoke all from anon` — a direct
-`GET /rest/v1/seat_chart_history` returns 42501.
-
-Two RPCs, both granted to `anon`:
-- `seat_chart_versions(p_id)` — last 40 snapshots as `{hid, saved_at, guests, tables}`,
-  no documents.
-- `seat_chart_restore(p_id, p_hid)` — writes that snapshot back and returns `{rev, doc}`.
-
-Surfaced as More -> "Restore an earlier version…". This exists because charts are shared
-by code and **either device can wipe one**; a wipe now costs a couple of taps to undo
-rather than being final.
+## No history — deliberately
+There was briefly a `seat_chart_history` table with a snapshot trigger and restore RPCs.
+Moshe removed it ("i dont need history on there i just need it to be live"). The table,
+trigger and both RPCs are dropped. **A wipe is now permanent** — there is no undo, on
+purpose. Do not add it back without being asked.
 
 ⚠️ **Never run `delete from seat_charts` (or any blanket DELETE) to tidy up.** This table
 holds other people's charts, not just test rows. Filter by the exact id you created, or
