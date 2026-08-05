@@ -123,8 +123,8 @@
       .then(function (rev) {
         SYNC.rev = rev;
         startSync(id);
-        linkNote('This device is on a new code now. Share it to bring others over.');
-        toast('New chart code created');
+        linkNote('Unlinked. This device is on a new code of its own.');
+        toast('Unlinked — new code created');
       })
       .catch(function () { toast('Could not reach the server'); });
   }
@@ -1319,7 +1319,7 @@
   });
 
   $('#link-fork').addEventListener('click', function () {
-    if (!confirm('Start a brand-new chart on a new code? Anyone sharing the current code keeps the old one.')) return;
+    if (!confirm('Unlink this device? It gets its own new code with a copy of the current chart. Other devices keep the old code.')) return;
     forkChart();
   });
 
@@ -1337,7 +1337,7 @@
       return;
     }
     if (id === SYNC.id) { toast('Already on that chart'); return; }
-    if (!confirm('Open that chart on this device instead of the current one?')) return;
+    if (!confirm('Link to that chart? This device swaps to it and its own current chart stays at your old code.')) return;
     rpc('seat_chart_get', { p_id: id, p_rev: 0 })
       .then(function (res) {
         if (!res || !res.doc) { toast('No chart with that code'); return; }
@@ -1347,7 +1347,7 @@
         saveLocal();
         startSync(id);
         closeModals();
-        toast('Opened that chart');
+        toast('Linked to that chart');
       })
       .catch(function () { toast('Could not reach the server'); });
   });
@@ -1450,7 +1450,10 @@
       id = localStorage.getItem(CHART_KEY);
       rev = parseInt(localStorage.getItem('seating.rev'), 10) || 0;
     } catch (e) {}
-    if (!id) { id = newChartId(); rev = 0; state = blank(); }  // a chart of its own
+    // No code yet — either a brand-new browser or one upgrading from the
+    // local-only build. Mint a code but KEEP whatever is already here;
+    // firstPull() then uploads it. Blanking here would throw away real work.
+    if (!id) { id = newChartId(); rev = 0; }
     SYNC.rev = rev;
     startSync(id);
     render();

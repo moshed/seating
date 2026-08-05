@@ -47,8 +47,14 @@ The chart is behind a password (`adina123`). An inline script in `<head>` adds `
 ⚠️ **The repo and the site are public, so this file is publicly readable.** Moshe asked for it to ship with the app ("so it can be imported by anyone using the app") and was told. To pull it: delete `guests.tsv`, the `#import-load` button in `index.html`, and its handler in `app.js`.
 
 ## Sharing
-Every browser gets its own chart and saves it to the server automatically. Sharing is
-opt-in: More -> "Share this chart" shows the code to paste on another device. Full schema, the
+Every browser gets its own chart and saves it to the server automatically. Linking is
+opt-in: More -> "Link a device / share" shows this device's code, takes another device's
+code, and unlinks.
+
+⚠️ **Never blank `state` when minting a chart id in `start()`.** A browser upgrading from
+the local-only build has real work in `localStorage` and no chart code; blanking there
+destroyed it and then reseeded the default list over the top. Mint the id, keep the
+state, and let `firstPull()` upload it. Full schema, the
 security model and the client loop are in `CLAUDE-supabase.md` — read that before
 touching anything sync related.
 

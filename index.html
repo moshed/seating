@@ -88,7 +88,7 @@
     <h3>More</h3>
     <div class="menu">
       <button class="menu-item" id="mm-default">Reset to the Leo &amp; Dani guest list</button>
-      <button class="menu-item" id="mm-link">Share this chart…</button>
+      <button class="menu-item" id="mm-link">Link a device / share…</button>
       <button class="menu-item" id="mm-print">Print / PDF the chart</button>
       <button class="menu-item" id="mm-csv">Download CSV</button>
       <button class="menu-item" id="mm-copy">Copy chart as text</button>
@@ -103,24 +103,25 @@
 <!-- Chart code / sharing -->
 <div class="modal" id="modal-link" hidden>
   <div class="sheet narrow">
-    <h3>Share this chart</h3>
-    <p class="hint">Your chart is saved online automatically. It is <b>yours alone</b> —
-      nobody sees it unless you hand them this code.</p>
+    <h3>Link a device</h3>
+    <p class="hint">Your chart saves online on its own. It is <b>private to this code</b> —
+      only devices holding it can see or change it.</p>
 
-    <p class="hint mt">Your chart code:</p>
+    <p class="hint mt"><b>1 · Your code</b> — copy this, then paste it on the other device.</p>
     <div class="codebox" id="link-code"></div>
-    <div class="linkrow">
-      <button class="btn primary" id="link-copy">Copy code</button>
-      <button class="btn" id="link-fork">Start a new chart</button>
-    </div>
+    <button class="btn primary wide" id="link-copy">Copy code</button>
 
-    <p class="hint mt">Got a code from someone else? Open their chart:</p>
+    <p class="hint mt"><b>2 · Or join a code</b> from your other device:</p>
     <div class="linkrow">
       <input id="link-join-input" placeholder="paste a code" autocomplete="off" spellcheck="false">
-      <button class="btn" id="link-join">Open</button>
+      <button class="btn" id="link-join">Link</button>
     </div>
-    <p class="hint small">Once two devices are on the same code they share one chart —
-      either can move people, and either can wipe it.</p>
+    <p class="hint small">Once two devices share a code they are one chart — either can
+      move people, and either can wipe it.</p>
+
+    <p class="hint mt"><b>Unlink</b> — leave the shared chart and carry on alone. The
+      other devices keep the current one, untouched.</p>
+    <button class="btn wide" id="link-fork">Unlink this device</button>
 
     <p class="hint" id="link-note"></p>
     <div class="sheet-actions"><span class="spacer"></span><button class="btn ghost" data-close>Close</button></div>
