@@ -45,5 +45,10 @@ The chart is behind a password (`adina123`). An inline script in `<head>` adds `
 
 ⚠️ **The repo and the site are public, so this file is publicly readable.** Moshe asked for it to ship with the app ("so it can be imported by anyone using the app") and was told. To pull it: delete `guests.tsv`, the `#import-load` button in `index.html`, and its handler in `app.js`.
 
+## Device linking
+More -> "Link another device" mints a uuid, uploads the chart and syncs it. Full schema,
+the security model and the client loop are in `CLAUDE-supabase.md` — read that before
+touching anything sync related.
+
 ## Not done yet
-- No sharing or sync — asked for and explicitly declined 4 Aug 2026 ("i dont actually need it to be shared"). State is per-browser localStorage — editing on the phone does not show up on the Mac. Use Download CSV / Copy chart as text to move it, or wire up Supabase if it needs to be shared.
+- State is per-browser localStorage unless a device link is set up — editing on the phone does not show up on the Mac. Use Download CSV / Copy chart as text to move it, or wire up Supabase if it needs to be shared.

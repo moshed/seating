@@ -16,6 +16,7 @@
 html,body{margin:0;height:100%}
 body{
   background:var(--paper);
+  overflow-x:hidden;
   color:var(--ink);
   font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
   font-size:15px;
@@ -124,11 +125,12 @@ h1,h2,h3{margin:0;font-family:"Cormorant Garamond",Georgia,serif;font-weight:600
 .tables{
   display:grid;
   grid-template-columns:repeat(auto-fill,minmax(238px,1fr));
-  gap:16px;
+  gap:16px;min-width:0;
 }
 .table-card{
   background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
   box-shadow:var(--shadow);display:flex;flex-direction:column;overflow:hidden;
+  min-width:0;
 }
 .table-card.over{
   border-color:var(--red);
@@ -172,13 +174,13 @@ h1,h2,h3{margin:0;font-family:"Cormorant Garamond",Georgia,serif;font-weight:600
 .pair{
   position:relative;display:flex;flex-direction:column;gap:5px;
   padding:5px 7px;border:1px solid var(--gold);border-radius:17px;
-  background:#fdf6e9;max-width:100%;
+  background:#fdf6e9;max-width:100%;min-width:0;
 }
 .pair::before{
   content:"";position:absolute;left:21px;top:20px;bottom:20px;
   width:2px;background:var(--gold);border-radius:2px;
 }
-.pair .chip{background:#fff;border-color:#ead9b4}
+.pair .chip{background:#fff;border-color:#ead9b4;min-width:0}
 .pair .chip:hover{border-color:var(--gold)}
 .empty-seat{
   border:1px dashed #ddd2bf;border-radius:999px;
@@ -202,7 +204,7 @@ h1,h2,h3{margin:0;font-family:"Cormorant Garamond",Georgia,serif;font-weight:600
 .chip.couple::before{
   content:"";width:7px;height:7px;border-radius:50%;background:var(--gold);flex:none;
 }
-.chip .nm{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chip .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .chip .x{
   border:none;background:transparent;color:#c9bfae;cursor:pointer;
   font-size:14px;line-height:1;padding:0 0 0 2px;opacity:0;
@@ -257,6 +259,20 @@ body.dragging{cursor:grabbing}
   cursor:pointer;font-size:14px;
 }
 .menu-item:hover{background:var(--gold-soft)}
+.btn.wide{width:100%}
+.hint.mt{margin-top:16px}
+.hint.small{font-size:12px;margin-top:12px}
+.linkrow{display:flex;gap:8px;align-items:center}
+.linkrow input{
+  flex:1;min-width:0;padding:9px 11px;font:inherit;font-size:13px;
+  border:1px solid var(--line);border-radius:10px;background:#fdfbf7;outline:none;
+}
+.linkrow input:focus{border-color:var(--gold)}
+.codebox{
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:13.5px;
+  background:var(--gold-soft);border:1px solid #e3d3ae;border-radius:11px;
+  padding:12px;margin:0 0 11px;word-break:break-all;user-select:all;text-align:center;
+}
 .menu.scroller{max-height:56vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .move-item{display:flex;align-items:center;gap:10px}
 .move-item .mi-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -317,6 +333,7 @@ html.locked .linkbar{display:none !important}
 @media (max-width:820px){
   .layout{grid-template-columns:1fr;padding:14px;gap:14px}
   .pool{position:static;max-height:42vh}
+  .tables{grid-template-columns:1fr}
   /* an empty waiting list should not eat a third of a phone screen */
   .pool-body:empty{min-height:0;padding:0 12px 12px}
   .pool-body:empty::after{font-size:12.5px}

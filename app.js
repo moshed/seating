@@ -28,8 +28,100 @@
     } catch (e) { return blank(); }
   }
 
-  function save() {
+  function saveLocal() {
     try { localStorage.setItem(LS, JSON.stringify(state)); } catch (e) {}
+  }
+
+  function save() {
+    saveLocal();
+    if (SYNC.id) schedulePush();
+  }
+
+  /* ---------------- linking two devices ----------------
+     One row per chart in Supabase, keyed by a random uuid. That uuid is the
+     whole credential: the table has no SELECT policy and cannot be listed,
+     so the only way in is knowing the code. Last write wins — this is for
+     one person on two devices, not a room full of editors. */
+
+  var SYNC = {
+    url: 'https://atqhfbaurrmivjarowco.supabase.co',
+    key: 'sb_publishable_G44hmJHuAwEcoxq0QPWI7w_BWt_owiB',
+    id: null, rev: 0, pushT: 0, poll: 0
+  };
+
+  function rpc(fn, body) {
+    return fetch(SYNC.url + '/rest/v1/rpc/' + fn, {
+      method: 'POST',
+      headers: {
+        'apikey': SYNC.key,
+        'Authorization': 'Bearer ' + SYNC.key,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      if (!r.ok) throw new Error('rpc ' + r.status);
+      return r.json();
+    });
+  }
+
+  function linkNote(msg) {
+    var el = $('#link-note');
+    if (el) el.textContent = msg;
+  }
+
+  function schedulePush() {
+    clearTimeout(SYNC.pushT);
+    SYNC.pushT = setTimeout(pushChart, 900);
+  }
+
+  function pushChart() {
+    if (!SYNC.id) return;
+    rpc('seat_chart_put', { p_id: SYNC.id, p_doc: state })
+      .then(function (rev) {
+        SYNC.rev = rev;
+        try { localStorage.setItem('seating.rev', String(rev)); } catch (e) {}
+        linkNote('Sent a moment ago');
+      })
+      .catch(function () { linkNote('Could not reach the server — will retry'); });
+  }
+
+  function pullChart() {
+    if (!SYNC.id || drag) return;                 // never yank the board mid-drag
+    rpc('seat_chart_get', { p_id: SYNC.id, p_rev: SYNC.rev })
+      .then(function (res) {
+        if (!res || res.same || !res.doc) return;
+        SYNC.rev = res.rev;
+        try { localStorage.setItem('seating.rev', String(res.rev)); } catch (e) {}
+        state = res.doc;
+        state.defaultSeats = state.defaultSeats || 10;
+        saveLocal();                               // local only — do not echo back
+        render();
+        toast('Updated from your other device');
+      })
+      .catch(function () {});
+  }
+
+  function startSync(id) {
+    SYNC.id = id;
+    try { localStorage.setItem('seating.link', id); } catch (e) {}
+    clearInterval(SYNC.poll);
+    SYNC.poll = setInterval(pullChart, 5000);
+    paintLink();
+  }
+
+  function stopSync() {
+    SYNC.id = null; SYNC.rev = 0;
+    clearInterval(SYNC.poll); SYNC.poll = 0;
+    try { localStorage.removeItem('seating.link'); localStorage.removeItem('seating.rev'); } catch (e) {}
+    paintLink();
+  }
+
+  function paintLink() {
+    var on = !!SYNC.id;
+    $('#link-off').hidden = on;
+    $('#link-on').hidden = !on;
+    if (on) $('#link-code').textContent = SYNC.id;
+    render();
   }
 
   /* ---------------- model helpers ---------------- */
@@ -523,7 +615,8 @@
     var seated = state.guests.length - unseated().length;
     $('#stats').textContent =
       state.guests.length + ' guests · ' + seated + ' seated · ' +
-      state.tables.length + ' tables · ' + seats + ' seats';
+      state.tables.length + ' tables · ' + seats + ' seats' +
+      (SYNC.id ? ' · linked' : '');
 
     // over-capacity list
     var over = state.tables.filter(function (t) { return t.guests.length > t.seats; });
@@ -1130,6 +1223,66 @@
     save();
     loadDefaultList();
   });
+  $('#mm-link').addEventListener('click', function () {
+    closeModals();
+    paintLink();
+    linkNote(SYNC.id ? 'In sync.' : '');
+    openModal('#modal-link');
+  });
+
+  $('#link-create').addEventListener('click', function () {
+    var id = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : uuidish();
+    rpc('seat_chart_put', { p_id: id, p_doc: state })
+      .then(function (rev) {
+        SYNC.rev = rev;
+        startSync(id);
+        linkNote('Created. Type this code on the other device.');
+        toast('Link code created');
+      })
+      .catch(function () { toast('Could not reach the server'); });
+  });
+
+  function uuidish() {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      var r = Math.random() * 16 | 0;
+      return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+  }
+
+  $('#link-join').addEventListener('click', function () {
+    var id = $('#link-join-input').value.trim().toLowerCase();
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id)) {
+      toast('That does not look like a code');
+      return;
+    }
+    if (state.guests.length &&
+        !confirm('Joining replaces the chart on this device with the shared one. Carry on?')) return;
+    rpc('seat_chart_get', { p_id: id, p_rev: 0 })
+      .then(function (res) {
+        if (!res || !res.doc) { toast('No chart with that code'); return; }
+        SYNC.rev = res.rev;
+        state = res.doc;
+        state.defaultSeats = state.defaultSeats || 10;
+        saveLocal();
+        startSync(id);
+        closeModals();
+        toast('Linked — this is now the shared chart');
+      })
+      .catch(function () { toast('Could not reach the server'); });
+  });
+
+  $('#link-copy').addEventListener('click', function () {
+    navigator.clipboard.writeText(SYNC.id || '')
+      .then(function () { toast('Code copied'); })
+      .catch(function () { toast('Select the code and copy it'); });
+  });
+
+  $('#link-stop').addEventListener('click', function () {
+    if (!confirm('Stop syncing? This device keeps its own copy of the chart.')) return;
+    stopSync();
+    toast('Unlinked');
+  });
+
   $('#mm-print').addEventListener('click', function () { closeModals(); setTimeout(function () { window.print(); }, 80); });
   $('#mm-csv').addEventListener('click', function () {
     closeModals(); download('seating.csv', csv(), 'text/csv;charset=utf-8');
@@ -1215,8 +1368,15 @@
   }
 
   function start() {
+    var linked = null, rev = 0;
+    try {
+      linked = localStorage.getItem('seating.link');
+      rev = parseInt(localStorage.getItem('seating.rev'), 10) || 0;
+    } catch (e) {}
+    if (linked) { SYNC.rev = rev; startSync(linked); pullChart(); }
+
     render();
-    if (!state.guests.length) loadDefaultList();
+    if (!state.guests.length && !linked) loadDefaultList();
   }
 
   var isUnlocked = false;
