@@ -194,7 +194,10 @@ h1,h2,h3{margin:0;font-family:"Cormorant Garamond",Georgia,serif;font-weight:600
   padding:6px 11px;border-radius:999px;
   background:#fdfbf7;border:1px solid var(--line);
   font-size:13px;line-height:1.15;cursor:grab;
-  touch-action:none;user-select:none;-webkit-user-select:none;
+  /* pan-y, not none: a quick swipe over a name must still scroll the page.
+     Dragging is armed by a long press, and from then on touchmove is
+     preventDefault-ed so the scroll never takes over. */
+  touch-action:pan-y;user-select:none;-webkit-user-select:none;
   -webkit-touch-callout:none;
   transition:border-color .12s,background .12s,box-shadow .12s;
   max-width:100%;
@@ -215,6 +218,9 @@ h1,h2,h3{margin:0;font-family:"Cormorant Garamond",Georgia,serif;font-weight:600
 .chip.mate{box-shadow:0 0 0 2px var(--gold)}
 .chip.picked{box-shadow:0 0 0 2px var(--gold);background:var(--gold-soft)}
 .chip.ghosting{opacity:.32}
+/* finger is down and the hold timer is running */
+.chip.pressing{transform:scale(.97);border-color:var(--gold);background:#fff}
+.chip.pressing .nm{opacity:.75}
 
 /* linking mode */
 body.linking .chip{cursor:pointer}

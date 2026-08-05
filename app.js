@@ -753,14 +753,53 @@
     if (ev.target.dataset && ev.target.dataset.del) return;  // the × button
     if (linking) return;                                      // linking mode uses clicks
 
+    var touch = ev.pointerType === 'touch';
     drag = {
       gid: el.dataset.gid,
       el: el,
       sx: ev.clientX, sy: ev.clientY,
-      touch: ev.pointerType === 'touch',
+      touch: touch,
+      armed: !touch,                 // a mouse drags straight away
+      timer: 0,
       started: false, ghost: null, ids: null, zone: null, hot: null
     };
+
+    if (touch) {
+      el.classList.add('pressing');
+      drag.timer = setTimeout(function () {
+        if (!drag) return;
+        drag.armed = true;
+        drag.el.classList.remove('pressing');
+        if (navigator.vibrate) navigator.vibrate(12);
+        startDrag();
+      }, HOLD_MS);
+      hintOnce();
+    }
   });
+
+  // How long a finger must rest on a name before it picks up. Below this a
+  // swipe is a swipe and the page just scrolls.
+  var HOLD_MS = 450;
+
+  function hintOnce() {
+    try {
+      if (localStorage.getItem('seating.hint')) return;
+      localStorage.setItem('seating.hint', '1');
+    } catch (e) { return; }
+    toast('Tap a name to move it · hold to drag');
+  }
+
+  function cancelHold() {
+    if (!drag) return;
+    clearTimeout(drag.timer);
+    drag.timer = 0;
+    if (drag.el) drag.el.classList.remove('pressing');
+  }
+
+  // Once a drag is live, stop the browser scrolling the page under it.
+  document.addEventListener('touchmove', function (ev) {
+    if (drag && drag.started) ev.preventDefault();
+  }, { passive: false });
 
   /* Auto-scroll while dragging near an edge. Without this a phone is stuck:
      you pick a name up and the table you want is off-screen with no way to
@@ -847,8 +886,14 @@
   document.addEventListener('pointermove', function (ev) {
     if (!drag) return;
     if (!drag.started) {
-      if (Math.abs(ev.clientX - drag.sx) + Math.abs(ev.clientY - drag.sy) < 6) return;
-      startDrag(ev);
+      var moved = Math.abs(ev.clientX - drag.sx) + Math.abs(ev.clientY - drag.sy);
+      if (drag.touch) {
+        // moved before the hold completed -> they meant to scroll, so let go
+        if (moved > 10) { cancelHold(); drag = null; }
+        return;
+      }
+      if (moved < 6) return;
+      startDrag();
     }
     ev.preventDefault();
 
@@ -871,7 +916,7 @@
     edgeScroll(ev.clientX, ev.clientY);
   }, { passive: false });
 
-  function startDrag(ev) {
+  function startDrag() {
     drag.started = true;
     drag.ids = unit(drag.gid);
     document.body.classList.add('dragging');
@@ -900,6 +945,7 @@
 
   function endDrag(commit) {
     if (!drag) return;
+    cancelHold();
     var d = drag; drag = null;
     stopEdgeScroll();
     if (!d.started) {
