@@ -49,6 +49,13 @@
   // the other's code.
   var CHART_KEY = 'seating.chart';
 
+  /* For nine minutes on 4 Aug 2026 (21:16–21:25 EDT) every browser was pinned
+     to this one hard-coded chart, so strangers who opened the link in that
+     window ended up sharing — and could pull each other's edits, or junk, over
+     their own work on a refresh. Anyone still on it is moved to a private code
+     of their own, keeping whatever their browser already holds. */
+  var LEGACY_SHARED = '6389c3f9-6eb3-4d2c-9487-9e475217c705';
+
   var SYNC = {
     url: 'https://atqhfbaurrmivjarowco.supabase.co',
     key: 'sb_publishable_G44hmJHuAwEcoxq0QPWI7w_BWt_owiB',
@@ -1482,7 +1489,7 @@
   }
 
   function start() {
-    var id = null, rev = 0;
+    var id = null, rev = 0, migrated = false;
     try {
       id = localStorage.getItem(CHART_KEY);
       rev = parseInt(localStorage.getItem('seating.rev'), 10) || 0;
@@ -1491,10 +1498,22 @@
     // local-only build. Mint a code but KEEP whatever is already here;
     // firstPull() then uploads it. Blanking here would throw away real work.
     if (!id) { id = newChartId(); rev = 0; }
+
+    // Caught in the nine-minute shared-chart window: cut them loose onto their
+    // own code, with their current chart intact.
+    if (id === LEGACY_SHARED) {
+      id = newChartId();
+      rev = 0;
+      try { localStorage.removeItem('seating.rev'); } catch (e) {}
+      migrated = true;
+    }
     SYNC.rev = rev;
     startSync(id);
     render();
     firstPull();
+    if (migrated) setTimeout(function () {
+      toast('This chart is now private to this device');
+    }, 1200);
   }
 
   var isUnlocked = false;
