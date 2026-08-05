@@ -150,6 +150,10 @@
           state.defaultSeats = state.defaultSeats || 10;
           saveLocal();
           render();
+          // somebody deleted everything — leave it deleted, but offer a way back
+          if (!state.guests.length && !state.tables.length) {
+            setTimeout(function () { $('#btn-import').click(); }, 300);
+          }
           return;
         }
         if (!state.guests.length) loadDefaultList();   // seeds, then save() pushes

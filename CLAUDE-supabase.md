@@ -42,7 +42,10 @@ trade.
 
 `firstPull()` runs on boot: whatever the server holds wins, because that is the shared
 truth. Only when the server has no row at all does the browser seed it from `guests.tsv`
-and push. "Start a separate chart" (`forkChart`) mints a fresh uuid for a private copy;
+and push. A row that exists but is *empty* is respected — someone deleted everything on
+purpose, so it stays deleted everywhere; the browser just opens the Guests box so there
+is a way back. Verified across two browsers: wipe on one propagates to the other, and a
+restore from either brings all 311 back. "Start a separate chart" (`forkChart`) mints a fresh uuid for a private copy;
 "Go back to the shared chart" returns to `DEFAULT_CHART`.
 
 ## Client behaviour (`app.js`)
