@@ -1259,7 +1259,12 @@
     });
 
     save();
-    if (placed) {
+    if (!replace) {
+      // Adding people must never disturb who is already sitting where. New
+      // names land in Not seated (unless the sheet named a table for them).
+      render();
+      toast(res.guests.length + ' added' + (placed ? '' : ' to Not seated'));
+    } else if (placed) {
       ensureTables();
       save(); render();
     } else {
