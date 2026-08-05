@@ -89,6 +89,7 @@
     <div class="menu">
       <button class="menu-item" id="mm-default">Reset to the Leo &amp; Dani guest list</button>
       <button class="menu-item" id="mm-link">Share this chart…</button>
+      <button class="menu-item" id="mm-history">Restore an earlier version…</button>
       <button class="menu-item" id="mm-print">Print / PDF the chart</button>
       <button class="menu-item" id="mm-csv">Download CSV</button>
       <button class="menu-item" id="mm-copy">Copy chart as text</button>
@@ -123,6 +124,17 @@
       either can move people, and either can wipe it.</p>
 
     <p class="hint" id="link-note"></p>
+    <div class="sheet-actions"><span class="spacer"></span><button class="btn ghost" data-close>Close</button></div>
+  </div>
+</div>
+
+<!-- Version history -->
+<div class="modal" id="modal-history" hidden>
+  <div class="sheet narrow">
+    <h3>Earlier versions</h3>
+    <p class="hint">Every save is kept. If someone wiped the chart or made a mess,
+      pick a version from before it happened.</p>
+    <div class="menu scroller" id="history-list"></div>
     <div class="sheet-actions"><span class="spacer"></span><button class="btn ghost" data-close>Close</button></div>
   </div>
 </div>

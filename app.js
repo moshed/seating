@@ -1360,6 +1360,51 @@
 
 
 
+  $('#mm-history').addEventListener('click', function () {
+    closeModals();
+    var list = $('#history-list');
+    list.innerHTML = '<p class="hint">Loading…</p>';
+    openModal('#modal-history');
+    rpc('seat_chart_versions', { p_id: SYNC.id })
+      .then(function (vs) {
+        list.innerHTML = '';
+        if (!vs || !vs.length) {
+          list.innerHTML = '<p class="hint">No earlier versions saved yet.</p>';
+          return;
+        }
+        vs.forEach(function (v) {
+          var b = document.createElement('button');
+          b.className = 'menu-item move-item';
+          b.type = 'button';
+          var when = new Date(v.saved_at);
+          var n = document.createElement('span');
+          n.className = 'mi-name';
+          n.textContent = when.toLocaleString([], {
+            month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit'
+          });
+          var sub = document.createElement('span');
+          sub.className = 'mi-sub';
+          sub.textContent = v.guests + ' guests · ' + v.tables + ' tables';
+          b.appendChild(n); b.appendChild(sub);
+          b.addEventListener('click', function () {
+            if (!confirm('Put the chart back to this version (' + v.guests + ' guests)?')) return;
+            rpc('seat_chart_restore', { p_id: SYNC.id, p_hid: v.hid })
+              .then(function (res) {
+                if (!res || !res.doc) { toast('Could not restore that one'); return; }
+                SYNC.rev = res.rev;
+                state = res.doc;
+                state.defaultSeats = state.defaultSeats || 10;
+                saveLocal(); render(); closeModals();
+                toast('Restored ' + v.guests + ' guests');
+              })
+              .catch(function () { toast('Could not reach the server'); });
+          });
+          list.appendChild(b);
+        });
+      })
+      .catch(function () { list.innerHTML = '<p class="hint">Could not reach the server.</p>'; });
+  });
+
   $('#mm-print').addEventListener('click', function () { closeModals(); setTimeout(function () { window.print(); }, 80); });
   $('#mm-csv').addEventListener('click', function () {
     closeModals(); download('seating.csv', csv(), 'text/csv;charset=utf-8');
